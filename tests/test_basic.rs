@@ -1,6 +1,6 @@
 //! Basic tests for iFlow SDK
 
-use iflow_cli_sdk_rust::{IFlowOptions, IFlowClient};
+use iflow_cli_sdk_rust::{IFlowOptions, IFlowClient, query};
 
 #[test]
 fn test_iflow_options_default() {
@@ -41,4 +41,14 @@ async fn test_client_with_options() {
     
     let _client = IFlowClient::new(Some(options));
     // Client should be created successfully
+}
+
+#[tokio::test]
+async fn test_query_function() {
+    // This test can only verify that the function can be called
+    // without a running iFlow instance, it will return an error
+    let _result = query("test").await;
+    // We expect an error since there's no iFlow instance running
+    // But we'll just verify the function can be called without panic
+    // The actual result depends on the environment
 }
