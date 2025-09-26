@@ -1,0 +1,60 @@
+[package]
+name = "iflow-cli-sdk-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["iFlow Team"]
+description = "Rust SDK for iFlow CLI using Agent Communication Protocol"
+license = "MIT"
+repository = "https://github.com/iflow/iflow-cli-sdk-rust"
+keywords = ["iflow", "agent", "ai", "websocket", "protocol"]
+categories = ["api-bindings", "asynchronous"]
+
+[dependencies]
+# Use the official agent-client-protocol crate
+agent-client-protocol = "0.4.3"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async utilities
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["compat"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+uuid = { version = "1.0", features = ["v4"] }
+url = "2.0"
+tokio-tungstenite = "0.20"
+
+# Optional dependencies for enhanced functionality
+base64 = { version = "0.21", optional = true }
+mime = { version = "0.3", optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[features]
+default = ["file-support"]
+file-support = ["base64", "mime"]
+
+[[example]]
+name = "basic_client"
+path = "examples/basic_client.rs"
+
+[[example]]
+name = "query"
+path = "examples/query.rs"
