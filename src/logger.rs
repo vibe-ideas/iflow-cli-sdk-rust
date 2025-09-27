@@ -1,4 +1,7 @@
-//! Logger module for recording iflow messages
+//! Logger module for recording iFlow messages
+//!
+//! This module provides functionality for logging messages exchanged with iFlow
+//! to files, with support for log rotation based on file size.
 
 use crate::Message;
 use std::fs::{File, OpenOptions};
@@ -8,6 +11,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Logger configuration
+///
+/// Configuration options for the message logger, including file paths,
+/// size limits, and retention policies.
 #[derive(Debug, Clone)]
 pub struct LoggerConfig {
     /// Log file path
@@ -32,6 +38,9 @@ impl Default for LoggerConfig {
 }
 
 /// Message logger
+///
+/// Handles writing iFlow messages to log files with automatic rotation
+/// based on file size limits.
 #[derive(Clone)]
 pub struct MessageLogger {
     config: LoggerConfig,
@@ -40,6 +49,16 @@ pub struct MessageLogger {
 
 impl MessageLogger {
     /// Create a new logger
+    ///
+    /// Creates a new message logger with the specified configuration.
+    /// If logging is disabled, it will create a null writer that discards all output.
+    ///
+    /// # Arguments
+    /// * `config` - The logger configuration
+    ///
+    /// # Returns
+    /// * `Ok(MessageLogger)` if the logger was created successfully
+    /// * `Err(io::Error)` if there was an error creating the log file
     pub fn new(config: LoggerConfig) -> Result<Self, io::Error> {
         if !config.enabled {
             return Ok(Self {
@@ -73,6 +92,16 @@ impl MessageLogger {
     }
 
     /// Rotate log files
+    ///
+    /// Rotates the log files based on the configured retention policy.
+    /// This method manages the renaming and deletion of old log files.
+    ///
+    /// # Arguments
+    /// * `config` - The logger configuration containing rotation settings
+    ///
+    /// # Returns
+    /// * `Ok(())` if the rotation was successful
+    /// * `Err(io::Error)` if there was an error during rotation
     fn rotate_log_file(config: &LoggerConfig) -> Result<(), io::Error> {
         if !config.log_file.exists() {
             return Ok(());
@@ -105,6 +134,16 @@ impl MessageLogger {
     }
 
     /// Log a message
+    ///
+    /// Writes a message to the log file, handling file rotation if necessary.
+    /// This method is async and thread-safe.
+    ///
+    /// # Arguments
+    /// * `message` - The message to log
+    ///
+    /// # Returns
+    /// * `Ok(())` if the message was logged successfully
+    /// * `Err(io::Error)` if there was an error writing to the log file
     pub async fn log_message(&self, message: &Message) -> Result<(), io::Error> {
         if !self.config.enabled {
             return Ok(());
@@ -132,17 +171,36 @@ impl MessageLogger {
     }
 
     /// Log raw message using Debug format without any processing
+    ///
+    /// Formats a message for logging using the Debug trait.
+    /// This provides a detailed representation of the message structure.
+    ///
+    /// # Arguments
+    /// * `message` - The message to format
+    ///
+    /// # Returns
+    /// A formatted string representation of the message
     fn format_message(&self, message: &Message) -> String {
         // Output raw message structure using Debug format
         format!("{:?}", message)
     }
 
     /// Get current log file path
+    ///
+    /// Returns the path to the current log file.
+    ///
+    /// # Returns
+    /// A reference to the log file path
     pub fn log_file_path(&self) -> &Path {
         &self.config.log_file
     }
 
     /// Get configuration
+    ///
+    /// Returns the logger configuration.
+    ///
+    /// # Returns
+    /// A reference to the logger configuration
     pub fn config(&self) -> &LoggerConfig {
         &self.config
     }

@@ -16,8 +16,21 @@
 //!     
 //!     client.send_message("Hello, iFlow!", None).await?;
 //!     
-//!     while let Some(message) = client.receive_message().await? {
-//!         println!("Received: {:?}", message);
+//!     // Listen for messages
+//!     let mut message_stream = client.messages();
+//!     while let Some(message) = message_stream.next().await {
+//!         match message {
+//!             iflow_cli_sdk_rust::Message::Assistant { content } => {
+//!                 print!("{}", content);
+//!                 std::io::stdout().flush()?;
+//!             }
+//!             iflow_cli_sdk_rust::Message::TaskFinish { .. } => {
+//!                 break;
+//!             }
+//!             _ => {
+//!                 // Handle other message types
+//!             }
+//!         }
 //!     }
 //!     
 //!     client.disconnect().await?;

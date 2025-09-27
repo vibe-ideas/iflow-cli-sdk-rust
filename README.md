@@ -8,10 +8,14 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 - 🔌 **Stdio Communication** - Communicate with iFlow via stdio for better performance and reliability
 - 🔄 **Bidirectional Communication** - Real-time streaming messages and responses
 - 🛠️ **Tool Call Management** - Fine-grained permission control for tool execution
-- 🤖 **Sub-agent Support** - Track and manage multiple AI agents via `agent_id`
 - 📋 **Task Planning** - Receive and process structured task plans
 - 🔍 **Raw Data Access** - Debug and inspect protocol-level messages
 - ⚡ **Async/Await Support** - Modern async Rust with full type safety
+
+## TODO
+
+- [ ] Add support for WebSocket communication
+- [ ] 🤖 **Sub-agent Support** - Track and manage multiple AI agents via `agent_id`
 
 ## Installation
 

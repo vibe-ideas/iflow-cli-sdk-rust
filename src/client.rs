@@ -1,4 +1,7 @@
 //! Main client implementation for iFlow SDK
+//!
+//! This module provides the core client functionality for communicating with iFlow
+//! using the Agent Communication Protocol (ACP) over stdio.
 
 use crate::error::{IFlowError, Result};
 use crate::process_manager::IFlowProcessManager;
@@ -15,6 +18,9 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::info;
 
 /// Main client for bidirectional communication with iFlow
+///
+/// This client handles the full lifecycle of communication with iFlow,
+/// including process management, connection handling, and message passing.
 pub struct IFlowClient {
     options: IFlowOptions,
     message_receiver: Arc<Mutex<mpsc::UnboundedReceiver<Message>>>,
@@ -26,6 +32,9 @@ pub struct IFlowClient {
 }
 
 /// Stream of messages from iFlow
+///
+/// This stream provides asynchronous access to messages received from iFlow.
+/// It implements the `futures::Stream` trait for easy integration with async code.
 pub struct MessageStream {
     receiver: Arc<Mutex<mpsc::UnboundedReceiver<Message>>>,
 }
@@ -212,6 +221,12 @@ impl Client for IFlowClientHandler {
 
 impl IFlowClient {
     /// Create a new iFlow client
+    ///
+    /// # Arguments
+    /// * `options` - Optional configuration for the client. If None, defaults will be used.
+    ///
+    /// # Returns
+    /// A new IFlowClient instance
     pub fn new(options: Option<IFlowOptions>) -> Self {
         let options = options.unwrap_or_default();
         let (sender, receiver) = mpsc::unbounded_channel();
@@ -228,6 +243,13 @@ impl IFlowClient {
     }
 
     /// Connect to iFlow
+    ///
+    /// Establishes a connection to iFlow, starting the process if auto_start_process is enabled.
+    /// This method handles all the necessary setup for communication via stdio.
+    ///
+    /// # Returns
+    /// * `Ok(())` if the connection was successful
+    /// * `Err(IFlowError)` if the connection failed
     pub async fn connect(&mut self) -> Result<()> {
         if *self.connected.lock().await {
             tracing::warn!("Already connected to iFlow");
@@ -280,6 +302,18 @@ impl IFlowClient {
     }
 
     /// Send a message to iFlow
+    ///
+    /// Sends a text message to iFlow and handles the complete request-response cycle.
+    /// This method initializes the connection, creates a new session, sends the prompt,
+    /// and waits for completion before returning.
+    ///
+    /// # Arguments
+    /// * `text` - The text message to send to iFlow
+    /// * `_files` - Optional files to send (currently not implemented)
+    ///
+    /// # Returns
+    /// * `Ok(())` if the message was sent successfully
+    /// * `Err(IFlowError)` if there was an error
     pub async fn send_message(&self, text: &str, _files: Option<Vec<&Path>>) -> Result<()> {
         if !*self.connected.lock().await {
             return Err(IFlowError::NotConnected);
@@ -336,6 +370,13 @@ impl IFlowClient {
     }
 
     /// Interrupt the current message generation
+    ///
+    /// Sends an interrupt signal to stop the current message generation.
+    /// This is useful for canceling long-running requests.
+    ///
+    /// # Returns
+    /// * `Ok(())` if the interrupt was sent successfully
+    /// * `Err(IFlowError)` if there was an error
     pub async fn interrupt(&self) -> Result<()> {
         if !*self.connected.lock().await {
             return Err(IFlowError::NotConnected);
@@ -358,6 +399,11 @@ impl IFlowClient {
     }
 
     /// Receive messages from iFlow
+    ///
+    /// Returns a stream of messages from iFlow that can be used with async iteration.
+    ///
+    /// # Returns
+    /// A `MessageStream` that implements `futures::Stream`
     pub fn messages(&self) -> MessageStream {
         MessageStream {
             receiver: self.message_receiver.clone(),
@@ -365,12 +411,26 @@ impl IFlowClient {
     }
 
     /// Receive a single message (convenience method)
+    ///
+    /// Waits for and returns the next message from iFlow.
+    ///
+    /// # Returns
+    /// * `Ok(Some(Message))` if a message was received
+    /// * `Ok(None)` if the channel is closed
+    /// * `Err(IFlowError)` if there was an error
     pub async fn receive_message(&self) -> Result<Option<Message>> {
         let mut receiver = self.message_receiver.lock().await;
         Ok(receiver.recv().await)
     }
 
     /// Disconnect from iFlow
+    ///
+    /// Cleans up the connection to iFlow and stops the process if it was started by this client.
+    /// This method ensures proper cleanup of resources.
+    ///
+    /// # Returns
+    /// * `Ok(())` if the disconnection was successful
+    /// * `Err(IFlowError)` if there was an error
     pub async fn disconnect(&mut self) -> Result<()> {
         *self.connected.lock().await = false;
 

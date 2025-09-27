@@ -5,6 +5,16 @@ use futures::stream::StreamExt;
 
 /// Simple synchronous query to iFlow
 ///
+/// Sends a query to iFlow and waits for a complete response.
+/// This is a convenience function for simple request-response interactions.
+///
+/// # Arguments
+/// * `prompt` - The query prompt to send to iFlow
+///
+/// # Returns
+/// * `Ok(String)` containing the response from iFlow
+/// * `Err(IFlowError)` if there was an error
+///
 /// # Example
 /// ```no_run
 /// use iflow_cli_sdk_rust::query;
@@ -47,6 +57,16 @@ pub async fn query(prompt: &str) -> Result<String> {
 }
 
 /// Stream responses from iFlow
+///
+/// Sends a query to iFlow and returns a stream of response chunks.
+/// This is useful for real-time output as the response is generated.
+///
+/// # Arguments
+/// * `prompt` - The query prompt to send to iFlow
+///
+/// # Returns
+/// * `Ok(impl Stream<Item = String>)` containing the response stream
+/// * `Err(IFlowError)` if there was an error
 ///
 /// # Example
 /// ```no_run
