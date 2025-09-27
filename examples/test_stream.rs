@@ -1,4 +1,4 @@
-//! 测试消息流实时性
+//! Test message stream real-time performance
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
@@ -7,7 +7,7 @@ use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧪 测试消息流实时性");
+    println!("🧪 Test message stream real-time performance");
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
@@ -17,16 +17,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut client = IFlowClient::new(Some(options));
 
-            println!("🔗 连接到 iFlow...");
+            println!("🔗 Connecting to iFlow...");
             client.connect().await?;
-            println!("✅ 连接成功");
+            println!("✅ Connection successful");
 
-            // 发送一个简单的消息
-            let prompt = "请说 'Hello World' 然后结束";
-            println!("📤 发送消息: {}", prompt);
+            // Send a simple message
+            let prompt = "Please say 'Hello World' and then finish";
+            println!("📤 Sending message: {}", prompt);
             client.send_message(prompt, None).await?;
 
-            println!("📥 开始接收消息...");
+            println!("📥 Start receiving messages...");
             let start_time = Instant::now();
             let mut message_count = 0;
 
@@ -68,18 +68,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
 
-                // 刷新标准输出以确保实时显示
+                // Flush stdout to ensure real-time display
                 std::io::stdout().flush()?;
             }
 
             println!(
-                "📊 测试完成: 接收到 {} 条消息，耗时 {:.2} 秒",
+                "📊 Test completed: Received {} messages in {:.2} seconds",
                 message_count,
                 start_time.elapsed().as_secs_f32()
             );
 
             client.disconnect().await?;
-            println!("👋 断开连接");
+            println!("👋 Disconnected");
 
             Ok(())
         })

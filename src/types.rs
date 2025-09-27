@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-// 导入日志配置
+// Import logger configuration
 use super::logger::LoggerConfig;
 
 // Re-export the types we need from agent-client-protocol
@@ -31,7 +31,7 @@ pub struct IFlowOptions {
     pub auto_start_process: bool,
     pub process_start_port: u16,
     pub auth_method_id: Option<String>,
-    /// 日志记录配置
+    /// Logger configuration
     pub log_config: LoggerConfig,
 }
 
@@ -85,19 +85,19 @@ impl IFlowOptions {
         self
     }
 
-    /// 启用或禁用日志记录
+    /// Enable or disable logging
     pub fn with_logging(mut self, enabled: bool) -> Self {
         self.log_config.enabled = enabled;
         self
     }
 
-    /// 设置日志文件路径
+    /// Set log file path
     pub fn with_log_file<P: Into<PathBuf>>(mut self, path: P) -> Self {
         self.log_config.log_file = path.into();
         self
     }
 
-    /// 设置日志文件最大大小（字节）
+    /// Set maximum log file size (bytes)
     pub fn with_max_log_size(mut self, size: u64) -> Self {
         self.log_config.max_file_size = size;
         self

@@ -1,4 +1,4 @@
-//! 日志记录器测试
+//! Logger tests
 
 use iflow_cli_sdk_rust::{LoggerConfig, Message, MessageLogger};
 
@@ -14,7 +14,7 @@ async fn test_logger_creation() {
     let logger = MessageLogger::new(config).unwrap();
     assert!(logger.config().enabled);
 
-    // 清理测试文件
+    // Clean up test files
     let _ = std::fs::remove_file("test_log.log");
 }
 
@@ -29,26 +29,26 @@ async fn test_log_raw_message() {
 
     let logger = MessageLogger::new(config).unwrap();
 
-    // 测试用户消息
+    // Test user message
     let user_msg = Message::User {
         content: "Hello, world!".to_string(),
     };
 
     logger.log_message(&user_msg).await.unwrap();
 
-    // 测试助手消息
+    // Test assistant message
     let assistant_msg = Message::Assistant {
         content: "Hello from assistant!".to_string(),
     };
 
     logger.log_message(&assistant_msg).await.unwrap();
 
-    // 验证文件内容（Debug 格式）
+    // Verify file content (Debug format)
     let content = std::fs::read_to_string("test_raw.log").unwrap();
     assert!(content.contains("User { content: \"Hello, world!\" }"));
     assert!(content.contains("Assistant { content: \"Hello from assistant!\" }"));
 
-    // 清理测试文件
+    // Clean up test files
     let _ = std::fs::remove_file("test_raw.log");
 }
 
@@ -67,9 +67,9 @@ async fn test_logger_disabled() {
         content: "This should not be logged".to_string(),
     };
 
-    // 即使禁用，也不应该出错
+    // Should not error even when disabled
     logger.log_message(&message).await.unwrap();
 
-    // 确保文件没有被创建
+    // Ensure the file was not created
     assert!(!std::path::Path::new("should_not_exist.log").exists());
 }

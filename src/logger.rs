@@ -1,4 +1,4 @@
-//! 日志记录器模块，用于记录 iflow 消息
+//! Logger module for recording iflow messages
 
 use crate::Message;
 use std::fs::{File, OpenOptions};
@@ -7,16 +7,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// 日志记录器配置
+/// Logger configuration
 #[derive(Debug, Clone)]
 pub struct LoggerConfig {
-    /// 日志文件路径
+    /// Log file path
     pub log_file: PathBuf,
-    /// 是否启用日志记录
+    /// Whether to enable logging
     pub enabled: bool,
-    /// 日志文件最大大小（字节），超过此大小会轮转
+    /// Maximum log file size (bytes), will rotate when exceeded
     pub max_file_size: u64,
-    /// 保留的日志文件数量
+    /// Number of log files to retain
     pub max_files: u32,
 }
 
@@ -31,7 +31,7 @@ impl Default for LoggerConfig {
     }
 }
 
-/// 日志记录器
+/// Message logger
 #[derive(Clone)]
 pub struct MessageLogger {
     config: LoggerConfig,
@@ -39,7 +39,7 @@ pub struct MessageLogger {
 }
 
 impl MessageLogger {
-    /// 创建新的日志记录器
+    /// Create a new logger
     pub fn new(config: LoggerConfig) -> Result<Self, io::Error> {
         if !config.enabled {
             return Ok(Self {
@@ -48,12 +48,12 @@ impl MessageLogger {
             });
         }
 
-        // 检查是否需要轮转日志文件
+        // Check if log file rotation is needed
         if let Some(parent) = config.log_file.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        // 检查文件大小
+        // Check file size
         if config.log_file.exists() {
             let metadata = std::fs::metadata(&config.log_file)?;
             if metadata.len() >= config.max_file_size {
@@ -72,13 +72,13 @@ impl MessageLogger {
         })
     }
 
-    /// 轮转日志文件
+    /// Rotate log files
     fn rotate_log_file(config: &LoggerConfig) -> Result<(), io::Error> {
         if !config.log_file.exists() {
             return Ok(());
         }
 
-        // 删除最旧的日志文件
+        // Delete the oldest log file
         for i in (0..config.max_files).rev() {
             let old_path = if i == 0 {
                 config.log_file.clone()
@@ -87,7 +87,7 @@ impl MessageLogger {
             };
 
             let new_path = if i + 1 >= config.max_files {
-                // 超出保留数量的文件直接删除
+                // Delete files that exceed the retention count
                 if old_path.exists() {
                     std::fs::remove_file(&old_path)?;
                 }
@@ -104,7 +104,7 @@ impl MessageLogger {
         Ok(())
     }
 
-    /// 记录消息
+    /// Log a message
     pub async fn log_message(&self, message: &Message) -> Result<(), io::Error> {
         if !self.config.enabled {
             return Ok(());
@@ -116,11 +116,11 @@ impl MessageLogger {
         writeln!(writer, "{}", log_entry)?;
         writer.flush()?;
 
-        // 检查文件大小
+        // Check file size
         if writer.get_ref().metadata()?.len() >= self.config.max_file_size {
             Self::rotate_log_file(&self.config)?;
 
-            // 重新打开文件
+            // Reopen the file
             let file = OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -131,18 +131,18 @@ impl MessageLogger {
         Ok(())
     }
 
-    /// 记录原始消息，使用 Debug 格式，不做任何加工
+    /// Log raw message using Debug format without any processing
     fn format_message(&self, message: &Message) -> String {
-        // 直接使用 Debug 格式输出原始消息结构
+        // Output raw message structure using Debug format
         format!("{:?}", message)
     }
 
-    /// 获取当前日志文件路径
+    /// Get current log file path
     pub fn log_file_path(&self) -> &Path {
         &self.config.log_file
     }
 
-    /// 获取配置
+    /// Get configuration
     pub fn config(&self) -> &LoggerConfig {
         &self.config
     }

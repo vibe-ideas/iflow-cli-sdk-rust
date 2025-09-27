@@ -1,4 +1,4 @@
-//! 测试实时消息接收
+//! Test real-time message receiving
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
@@ -7,7 +7,7 @@ use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧪 测试实时消息接收");
+    println!("🧪 Test real-time message receiving");
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
@@ -17,19 +17,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut client = IFlowClient::new(Some(options));
 
-            println!("🔗 连接到 iFlow...");
+            println!("🔗 Connecting to iFlow...");
             client.connect().await?;
-            println!("✅ 连接成功");
+            println!("✅ Connection successful");
 
             let start_time = Instant::now();
 
-            // 发送消息
-            println!("📤 [{}s] 发送消息...", start_time.elapsed().as_secs_f32());
+            // Send message
+            println!("📤 [{}s] Sending message...", start_time.elapsed().as_secs_f32());
             client
-                .send_message("请说 'Hello World' 然后结束", None)
+                .send_message("Please say 'Hello World' and then finish", None)
                 .await?;
 
-            println!("📥 开始接收消息...");
+            println!("📥 Start receiving messages...");
             let mut message_stream = client.messages();
             let mut message_count = 0;
 
@@ -66,13 +66,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!(
-                "📊 测试完成: 接收到 {} 条消息，耗时 {:.2} 秒",
+                "📊 Test completed: Received {} messages in {:.2} seconds",
                 message_count,
                 start_time.elapsed().as_secs_f32()
             );
 
             client.disconnect().await?;
-            println!("👋 断开连接");
+            println!("👋 Disconnected");
 
             Ok(())
         })
