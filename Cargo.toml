@@ -1,11 +1,11 @@
 [package]
 name = "iflow-cli-sdk-rust"
 version = "0.1.0"
-edition = "2021"
-authors = ["iFlow Team"]
+edition = "2024"
+authors = ["iFlow Community Team"]
 description = "Rust SDK for iFlow CLI using Agent Communication Protocol"
 license = "MIT"
-repository = "https://github.com/iflow/iflow-cli-sdk-rust"
+repository = "https://github.com/vibe-ideas/iflow-cli-sdk-rust"
 keywords = ["iflow", "agent", "ai", "websocket", "protocol"]
 categories = ["api-bindings", "asynchronous"]
 
