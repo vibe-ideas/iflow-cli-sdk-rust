@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Interactive Session
 
 ```rust
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions};
+use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
 use futures::stream::StreamExt;
 
 #[tokio::main]
@@ -147,6 +147,15 @@ cargo run --example test_response
 
 # Explore API capabilities
 cargo run --example explore_api
+
+# Test real-time message streaming
+cargo run --example test_stream
+
+# Test real-time performance
+cargo run --example test_realtime
+
+# Logging example
+cargo run --example logging_example
 ```
 
 ## Architecture
@@ -158,6 +167,7 @@ The SDK is organized into several modules:
 - `process_manager` - iFlow process lifecycle management
 - `query` - Convenience functions for simple queries
 - `error` - Error types and handling
+- `logger` - Message logging functionality
 
 ## Requirements
 
