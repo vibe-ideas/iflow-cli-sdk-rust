@@ -38,24 +38,22 @@
 //! ```
 
 pub mod client;
-pub mod types;
 pub mod error;
-pub mod query;
+pub mod logger;
 pub mod process_manager;
+pub mod query;
+pub mod types;
 
 // Re-export main types
 pub use client::IFlowClient;
-pub use types::{
-    IFlowOptions, Message
-};
-pub use query::{query, query_stream};
 pub use error::{IFlowError, Result};
+pub use logger::{LoggerConfig, MessageLogger};
 pub use process_manager::IFlowProcessManager;
+pub use query::{query, query_stream};
+pub use types::{IFlowOptions, Message};
 
 // Re-export types from agent-client-protocol that we actually use
-pub use agent_client_protocol::{
-    SessionId, McpServer, EnvVariable, StopReason
-};
+pub use agent_client_protocol::{EnvVariable, McpServer, SessionId, StopReason};
 
 // Version info
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

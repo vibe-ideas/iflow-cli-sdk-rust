@@ -58,3 +58,7 @@ path = "examples/basic_client.rs"
 [[example]]
 name = "query"
 path = "examples/query.rs"
+
+[[example]]
+name = "logging_example"
+path = "examples/logging_example.rs"

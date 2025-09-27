@@ -1,6 +1,6 @@
 //! Basic tests for iFlow SDK
 
-use iflow_cli_sdk_rust::{IFlowOptions, IFlowClient, query};
+use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, query};
 
 #[test]
 fn test_iflow_options_default() {
@@ -14,7 +14,7 @@ fn test_iflow_options_builder() {
     let options = IFlowOptions::new()
         .with_timeout(60.0)
         .with_file_access(true);
-    
+
     assert_eq!(options.timeout, 60.0);
     assert!(options.file_access);
 }
@@ -22,7 +22,7 @@ fn test_iflow_options_builder() {
 #[test]
 fn test_iflow_options_sandbox() {
     let options = IFlowOptions::for_sandbox("wss://sandbox.example.com/acp");
-    
+
     assert!(options.auto_start_process); // Should inherit from default
 }
 
@@ -38,7 +38,7 @@ async fn test_client_with_options() {
     let options = IFlowOptions::new()
         .with_timeout(45.0)
         .with_file_access(true);
-    
+
     let _client = IFlowClient::new(Some(options));
     // Client should be created successfully
 }

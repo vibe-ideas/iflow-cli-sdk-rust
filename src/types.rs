@@ -4,10 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+// 导入日志配置
+use super::logger::LoggerConfig;
+
 // Re-export the types we need from agent-client-protocol
 pub use agent_client_protocol::{
-    SessionId, ContentBlock, TextContent, ImageContent, ToolCall, ToolCallUpdate, 
-    Plan, StopReason, Error, McpServer, EnvVariable
+    ContentBlock, EnvVariable, Error, ImageContent, McpServer, Plan, SessionId, StopReason,
+    TextContent, ToolCall, ToolCallUpdate,
 };
 
 /// Protocol version
@@ -28,6 +31,8 @@ pub struct IFlowOptions {
     pub auto_start_process: bool,
     pub process_start_port: u16,
     pub auth_method_id: Option<String>,
+    /// 日志记录配置
+    pub log_config: LoggerConfig,
 }
 
 impl Default for IFlowOptions {
@@ -45,6 +50,7 @@ impl Default for IFlowOptions {
             auto_start_process: true,
             process_start_port: 8090,
             auth_method_id: None,
+            log_config: LoggerConfig::default(),
         }
     }
 }
@@ -53,29 +59,47 @@ impl IFlowOptions {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn for_sandbox(_sandbox_url: &str) -> Self {
         // Sandbox mode is no longer supported with stdio transport
         Self::default()
     }
-    
+
     pub fn with_timeout(mut self, timeout: f64) -> Self {
         self.timeout = timeout;
         self
     }
-    
+
     pub fn with_cwd(mut self, cwd: PathBuf) -> Self {
         self.cwd = cwd;
         self
     }
-    
+
     pub fn with_file_access(mut self, enabled: bool) -> Self {
         self.file_access = enabled;
         self
     }
-    
+
     pub fn with_auto_start_process(mut self, enabled: bool) -> Self {
         self.auto_start_process = enabled;
+        self
+    }
+
+    /// 启用或禁用日志记录
+    pub fn with_logging(mut self, enabled: bool) -> Self {
+        self.log_config.enabled = enabled;
+        self
+    }
+
+    /// 设置日志文件路径
+    pub fn with_log_file<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.log_config.log_file = path.into();
+        self
+    }
+
+    /// 设置日志文件最大大小（字节）
+    pub fn with_max_log_size(mut self, size: u64) -> Self {
+        self.log_config.max_file_size = size;
         self
     }
 }
@@ -86,19 +110,23 @@ impl IFlowOptions {
 pub enum Message {
     #[serde(rename = "user")]
     User { content: String },
-    
+
     #[serde(rename = "assistant")]
     Assistant { content: String },
-    
+
     #[serde(rename = "tool_call")]
-    ToolCall { id: String, name: String, status: String },
-    
+    ToolCall {
+        id: String,
+        name: String,
+        status: String,
+    },
+
     #[serde(rename = "plan")]
     Plan { entries: Vec<String> },
-    
+
     #[serde(rename = "task_finish")]
     TaskFinish { reason: Option<String> },
-    
+
     #[serde(rename = "error")]
     Error { code: i32, message: String },
 }
@@ -107,11 +135,11 @@ impl Message {
     pub fn is_task_finish(&self) -> bool {
         matches!(self, Message::TaskFinish { .. })
     }
-    
+
     pub fn is_error(&self) -> bool {
         matches!(self, Message::Error { .. })
     }
-    
+
     pub fn get_text(&self) -> Option<&str> {
         match self {
             Message::User { content } => Some(content),
