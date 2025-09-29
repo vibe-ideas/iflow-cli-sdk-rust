@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     local.run_until(async {
         // Configure client options with WebSocket URL
         let options = IFlowOptions::new()
-            .with_websocket_url("ws://localhost:8090/acp")
+            .with_websocket_url("ws://localhost:8090/acp?peer=iflow")
             .with_auto_start_process(true); // Auto-start when using WebSocket
 
         // Create and connect client

@@ -97,28 +97,47 @@ impl ACPProtocol {
 
         info!("Initializing ACP protocol");
 
-        // Wait for //ready signal with timeout
+        // Wait for //ready signal with timeout and better error handling
         info!("Waiting for //ready signal...");
-        let ready_timeout = Duration::from_secs(10);
+        let ready_timeout = Duration::from_secs(60); // Increased timeout
+        let start_time = std::time::Instant::now();
         
         loop {
-            let msg = timeout(ready_timeout, self.transport.receive())
-                .await
-                .map_err(|_| IFlowError::Timeout("Timeout waiting for //ready signal".to_string()))?
-                .map_err(|e| IFlowError::Connection(format!("Failed to receive message: {}", e)))?;
+            if start_time.elapsed() > ready_timeout {
+                return Err(IFlowError::Timeout("Timeout waiting for //ready signal".to_string()));
+            }
 
-            if msg.trim() == "//ready" {
+            let msg = match timeout(Duration::from_secs(10), self.transport.receive()).await {
+                Ok(Ok(msg)) => msg,
+                Ok(Err(e)) => {
+                    tracing::error!("Transport error while waiting for //ready: {}", e);
+                    // Don't immediately fail, try to reconnect or continue
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
+                Err(_) => {
+                    tracing::debug!("No message received in 10s, continuing to wait for //ready...");
+                    continue;
+                }
+            };
+
+            let trimmed_msg = msg.trim();
+            if trimmed_msg == "//ready" {
                 info!("Received //ready signal");
                 break;
-            } else if msg.starts_with("//") {
+            } else if trimmed_msg.starts_with("//") {
                 // Log other control messages
-                tracing::debug!("Control message: {}", msg);
-            } else {
-                // Not a control message, put it back for later processing?
-                // For now, we'll continue waiting for //ready
-                tracing::debug!("Non-control message received while waiting for //ready: {}", msg);
+                tracing::debug!("Control message: {}", trimmed_msg);
+                continue;
+            } else if !trimmed_msg.is_empty() {
+                // Not a control message, continue waiting for //ready
+                tracing::debug!("Non-control message received while waiting for //ready: {}", trimmed_msg);
+                continue;
             }
         }
+
+        // Add a small delay to ensure the server is fully ready
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Send initialize request
         let request_id = self.next_request_id();
@@ -133,9 +152,7 @@ impl ACPProtocol {
         });
 
         // Add optional configurations from options
-        // TODO: Fix McpServer field access
         if !options.mcp_servers.is_empty() {
-            // For now, we'll create an empty array
             params["mcpServers"] = json!([]);
         }
 
@@ -146,11 +163,29 @@ impl ACPProtocol {
             "params": params,
         });
 
-        self.transport.send(&request).await?;
-        info!("Sent initialize request");
+        // Send with retry logic
+        let mut send_attempts = 0;
+        let max_send_attempts = 3;
+        
+        while send_attempts < max_send_attempts {
+            match self.transport.send(&request).await {
+                Ok(_) => {
+                    info!("Sent initialize request (attempt {})", send_attempts + 1);
+                    break;
+                }
+                Err(e) => {
+                    send_attempts += 1;
+                    tracing::warn!("Failed to send initialize request (attempt {}): {}", send_attempts, e);
+                    if send_attempts >= max_send_attempts {
+                        return Err(IFlowError::Protocol(format!("Failed to send initialize request after {} attempts: {}", max_send_attempts, e)));
+                    }
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                }
+            }
+        }
 
         // Wait for initialize response with timeout
-        let response_timeout = Duration::from_secs(10);
+        let response_timeout = Duration::from_secs(30);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for initialize response".to_string()))?
@@ -362,8 +397,25 @@ impl ACPProtocol {
     /// * `Ok(Value)` containing the response
     /// * `Err(IFlowError)` if waiting failed
     async fn wait_for_response(&mut self, request_id: u32) -> Result<Value> {
+        let timeout_duration = Duration::from_secs(30);
+        let start_time = std::time::Instant::now();
+
         loop {
-            let msg = self.transport.receive().await?;
+            if start_time.elapsed() > timeout_duration {
+                return Err(IFlowError::Timeout(format!("Timeout waiting for response to request {}", request_id)));
+            }
+
+            let msg = match timeout(Duration::from_secs(5), self.transport.receive()).await {
+                Ok(Ok(msg)) => msg,
+                Ok(Err(e)) => {
+                    tracing::error!("Transport error while waiting for response: {}", e);
+                    return Err(e);
+                }
+                Err(_) => {
+                    tracing::debug!("No message received in 5s, continuing to wait for response to request {}...", request_id);
+                    continue;
+                }
+            };
             
             // Skip control messages
             if msg.starts_with("//") {
@@ -372,8 +424,13 @@ impl ACPProtocol {
             }
 
             // Try to parse as JSON
-            let data: Value = serde_json::from_str(&msg)
-                .map_err(|e| IFlowError::JsonParse(e))?;
+            let data: Value = match serde_json::from_str(&msg) {
+                Ok(data) => data,
+                Err(e) => {
+                    tracing::debug!("Failed to parse message as JSON: {}, message: {}", e, msg);
+                    continue;
+                }
+            };
 
             // Check if this is the response we're waiting for
             if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
@@ -383,7 +440,10 @@ impl ACPProtocol {
             }
 
             // If not our response, process as a notification
-            self.handle_notification(data).await?;
+            if let Err(e) = self.handle_notification(data).await {
+                tracing::warn!("Failed to handle notification: {}", e);
+                // Don't fail the entire wait, just log and continue
+            }
         }
     }
 

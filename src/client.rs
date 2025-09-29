@@ -14,6 +14,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 // ChildStdin import moved to where it's used
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
@@ -32,6 +33,7 @@ enum Connection {
     WebSocket {
         acp_protocol: ACPProtocol,
         session_id: Option<String>,
+        process_manager: Option<IFlowProcessManager>,
     },
 }
 
@@ -338,6 +340,9 @@ impl IFlowClient {
             .ok_or_else(|| IFlowError::Connection("WebSocket URL not configured".to_string()))?
             .clone();
 
+        // 用于在需要自动启动时保存进程管理器
+        let mut process_manager_to_keep: Option<IFlowProcessManager> = None;
+
         // Check if we need to start iFlow process
         let final_url = if self.options.auto_start_process && websocket_url.starts_with("ws://localhost:") {
             info!("iFlow auto-start enabled, checking if iFlow is already running...");
@@ -348,34 +353,62 @@ impl IFlowClient {
                 // iFlow not running, start it
                 info!("iFlow not running, starting process...");
                 let mut pm = IFlowProcessManager::new(self.options.process_start_port);
-                let iflow_url = pm.start(true).await? // true for websocket
+                let iflow_url = pm.start(true).await?
                     .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
                 info!("Started iFlow process at {}", iflow_url);
-                
-                // Use the URL returned by the process manager
+
+                // 保存进程管理器，避免句柄提前 drop 导致子进程因 stdout/stderr 管道问题退出
+                process_manager_to_keep = Some(pm);
+
                 iflow_url
             } else {
-                // iFlow is already running, use the original URL
+                let _ = test_transport.close().await;
                 websocket_url.clone()
             }
         } else {
-            // Don't auto-start, use the original URL
             websocket_url.clone()
         };
 
-        // Create WebSocket transport
-        let mut transport = WebSocketTransport::new(final_url, self.options.timeout);
+        // Create WebSocket transport with increased timeout
+        let mut transport = WebSocketTransport::new(final_url.clone(), 30.0);
 
-        // Connect to WebSocket
-        transport.connect().await?;
+        // Connect to WebSocket with retry logic
+        let mut connect_attempts = 0;
+        let max_connect_attempts = 5;
+        
+        while connect_attempts < max_connect_attempts {
+            match transport.connect().await {
+                Ok(_) => {
+                    info!("Successfully connected to WebSocket at {}", final_url);
+                    break;
+                }
+                Err(e) => {
+                    connect_attempts += 1;
+                    tracing::warn!("Failed to connect to WebSocket (attempt {}): {}", connect_attempts, e);
+                    
+                    if connect_attempts >= max_connect_attempts {
+                        return Err(IFlowError::Connection(format!(
+                            "Failed to connect to WebSocket after {} attempts: {}", 
+                            max_connect_attempts, e
+                        )));
+                    }
+                    
+                    // Wait before retrying, with exponential backoff
+                    let delay = Duration::from_millis(1000 * connect_attempts as u64);
+                    tracing::info!("Waiting {:?} before retry...", delay);
+                    tokio::time::sleep(delay).await;
+                }
+            }
+        }
 
         // Create ACP protocol handler
         let acp_protocol = ACPProtocol::new(transport, self.message_sender.clone());
 
-        // Store the connection
+        // Store the connection（新增持有 process_manager）
         self.connection = Some(Connection::WebSocket {
             acp_protocol,
             session_id: None,
+            process_manager: process_manager_to_keep,
         });
 
         *self.connected.lock().await = true;
@@ -402,16 +435,14 @@ impl IFlowClient {
             return Err(IFlowError::NotConnected);
         }
 
-        // We need to handle the connection in a way that avoids borrowing issues
-        // Let's check the connection type first
         let is_websocket = matches!(self.connection, Some(Connection::WebSocket { .. }));
         
         if is_websocket {
-            // Handle WebSocket connection by temporarily taking ownership
-            if let Some(Connection::WebSocket { mut acp_protocol, mut session_id }) = self.connection.take() {
+            // 适配新增的 process_manager 字段
+            if let Some(Connection::WebSocket { mut acp_protocol, mut session_id, process_manager }) = self.connection.take() {
+                let pm = process_manager;
                 let result = self.send_message_websocket(&mut acp_protocol, &mut session_id, text).await;
-                // Put the connection back
-                self.connection = Some(Connection::WebSocket { acp_protocol, session_id });
+                self.connection = Some(Connection::WebSocket { acp_protocol, session_id, process_manager: pm });
                 result
             } else {
                 Err(IFlowError::NotConnected)
@@ -420,7 +451,6 @@ impl IFlowClient {
             // Handle Stdio connection by temporarily taking ownership
             if let Some(Connection::Stdio { acp_client, process_manager, mut session_id, mut initialized }) = self.connection.take() {
                 let result = self.send_message_stdio(&acp_client, &mut session_id, &mut initialized, text).await;
-                // Put the connection back
                 self.connection = Some(Connection::Stdio { acp_client, process_manager, session_id, initialized });
                 result
             } else {
@@ -487,29 +517,58 @@ impl IFlowClient {
     async fn send_message_websocket(&mut self, protocol: &mut ACPProtocol, session_id: &mut Option<String>, text: &str) -> Result<()> {
         // Initialize the protocol if not already done
         if !protocol.is_initialized() {
-            protocol.initialize(&self.options).await?;
+            tracing::info!("Initializing WebSocket protocol...");
+            protocol.initialize(&self.options).await
+                .map_err(|e| {
+                    tracing::error!("Failed to initialize protocol: {}", e);
+                    e
+                })?;
             
             // Authenticate if needed
             if !protocol.is_authenticated() {
+                tracing::info!("Authenticating...");
                 if let Some(method_id) = &self.options.auth_method_id {
-                    protocol.authenticate(method_id, None).await?;
+                    protocol.authenticate(method_id, None).await
+                        .map_err(|e| {
+                            tracing::error!("Authentication failed with method {}: {}", method_id, e);
+                            e
+                        })?;
                 } else {
                     // Try default authentication
-                    protocol.authenticate("iflow", None).await?;
+                    protocol.authenticate("iflow", None).await
+                        .map_err(|e| {
+                            tracing::error!("Default authentication failed: {}", e);
+                            e
+                        })?;
                 }
             }
             
             // Create a new session
-            let new_session_id = protocol.create_session(".").await?;
+            tracing::info!("Creating new session...");
+            let current_dir = std::env::current_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                .to_string_lossy()
+                .to_string();
+            let new_session_id = protocol.create_session(&current_dir).await
+                .map_err(|e| {
+                    tracing::error!("Failed to create session: {}", e);
+                    e
+                })?;
             *session_id = Some(new_session_id);
+            tracing::info!("Session created successfully");
         }
         
         // Make sure we have a session
-        let session_id = session_id.as_ref()
+        let current_session_id = session_id.as_ref()
             .ok_or_else(|| IFlowError::Connection("No session available".to_string()))?;
 
         // Send the prompt and get the request ID
-        let _request_id = protocol.send_prompt(session_id, text).await?;
+        tracing::info!("Sending prompt to session: {}", current_session_id);
+        let _request_id = protocol.send_prompt(current_session_id, text).await
+            .map_err(|e| {
+                tracing::error!("Failed to send prompt: {}", e);
+                e
+            })?;
 
         info!("Sent message to iFlow: {}", text);
         Ok(())
@@ -528,7 +587,6 @@ impl IFlowClient {
             return Err(IFlowError::NotConnected);
         }
 
-        // Send interrupt message to our own channel
         let message = Message::TaskFinish {
             reason: Some("interrupted".to_string()),
         };
@@ -575,22 +633,22 @@ impl IFlowClient {
     pub async fn disconnect(&mut self) -> Result<()> {
         *self.connected.lock().await = false;
 
-        // Clean up based on connection type
         match &mut self.connection {
             Some(Connection::Stdio { process_manager, .. }) => {
-                // Stop iFlow process if we started it
                 if let Some(mut pm) = process_manager.take() {
                     pm.stop().await?;
                 }
             }
-            Some(Connection::WebSocket { acp_protocol, .. }) => {
-                // Close WebSocket connection
+            Some(Connection::WebSocket { acp_protocol, process_manager, .. }) => {
                 let _ = acp_protocol.close().await;
+                // 如果是我们自动启动的进程，断开时停止
+                if let Some(mut pm) = process_manager.take() {
+                    pm.stop().await?;
+                }
             }
             None => {}
         }
 
-        // Clear resources
         self.connection = None;
 
         info!("Disconnected from iFlow");

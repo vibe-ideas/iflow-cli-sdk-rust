@@ -169,32 +169,69 @@ impl WebSocketTransport {
             .as_mut()
             .ok_or(IFlowError::NotConnected)?;
 
-        // Receive the next message
-        let msg = ws_stream
-            .next()
-            .await
-            .ok_or(IFlowError::Connection("Connection closed".to_string()))?
-            .map_err(|e| IFlowError::Transport(format!("Failed to receive message: {}", e)))?;
+        // Receive the next message with proper error handling
+        loop {
+            let msg = match ws_stream.next().await {
+                Some(Ok(msg)) => msg,
+                Some(Err(e)) => {
+                    tracing::error!("WebSocket error: {}", e);
+                    self.connected = false;
+                    return Err(IFlowError::Transport(format!("Failed to receive message: {}", e)));
+                }
+                None => {
+                    tracing::info!("WebSocket connection closed");
+                    self.connected = false;
+                    return Err(IFlowError::Connection("Connection closed".to_string()));
+                }
+            };
 
-        match msg {
-            Message::Text(text) => {
-                tracing::debug!(
-                    "Received message: {}",
-                    if text.len() > 200 {
-                        format!("{}...", &text[..200])
-                    } else {
-                        text.clone()
+            match msg {
+                Message::Text(text) => {
+                    // Clean up the text - remove any non-printable characters at the beginning
+                    let cleaned_text = text.trim_start_matches(|c: char| !c.is_ascii() || c.is_control() && c != '\n' && c != '\r' && c != '\t');
+                    tracing::debug!(
+                        "Received message: {}",
+                        if cleaned_text.len() > 200 {
+                            format!("{}...", &cleaned_text[..200])
+                        } else {
+                            cleaned_text.to_string()
+                        }
+                    );
+                    return Ok(cleaned_text.to_string());
+                }
+                Message::Binary(data) => {
+                    // Convert binary to string if possible
+                    match String::from_utf8(data) {
+                        Ok(text) => return Ok(text),
+                        Err(_) => {
+                            tracing::debug!("Received binary message, ignoring");
+                            continue;
+                        }
                     }
-                );
-                Ok(text)
-            }
-            Message::Close(_) => {
-                self.connected = false;
-                Err(IFlowError::Connection("Connection closed by server".to_string()))
-            }
-            _ => {
-                // Handle other message types as text
-                Ok(msg.to_string())
+                }
+                Message::Ping(data) => {
+                    // Respond to ping with pong
+                    tracing::debug!("Received ping, sending pong");
+                    if let Err(e) = ws_stream.send(Message::Pong(data)).await {
+                        tracing::error!("Failed to send pong: {}", e);
+                        self.connected = false;
+                        return Err(IFlowError::Transport(format!("Failed to send pong: {}", e)));
+                    }
+                    continue;
+                }
+                Message::Pong(_) => {
+                    tracing::debug!("Received pong");
+                    continue;
+                }
+                Message::Close(close_frame) => {
+                    tracing::info!("Received close frame: {:?}", close_frame);
+                    self.connected = false;
+                    return Err(IFlowError::Connection("Connection closed by server".to_string()));
+                }
+                Message::Frame(_) => {
+                    tracing::debug!("Received raw frame, ignoring");
+                    continue;
+                }
             }
         }
     }
@@ -212,7 +249,7 @@ impl WebSocketTransport {
         Ok(())
     }
 
-    /// Check if transport is connected
+    /// Check if the WebSocket is connected
     ///
     /// # Returns
     /// True if connected, False otherwise

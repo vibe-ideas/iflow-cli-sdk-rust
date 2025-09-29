@@ -47,6 +47,22 @@ fn is_port_available(port: u16) -> bool {
     TcpListener::bind(("localhost", port)).is_ok()
 }
 
+/// Check if a port is listening (has a server running)
+///
+/// # Arguments
+/// * `port` - Port number to check
+///
+/// # Returns
+/// True if the port is listening, False otherwise
+fn is_port_listening(port: u16) -> bool {
+    use std::net::TcpStream;
+    use std::time::Duration;
+    TcpStream::connect_timeout(
+        &format!("127.0.0.1:{}", port).parse().unwrap(),
+        Duration::from_millis(100)
+    ).is_ok()
+}
+
 /// Find an available port starting from the given port
 ///
 /// # Arguments
@@ -94,8 +110,9 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             cmd.arg("--experimental-acp");
             cmd.arg("--port");
             cmd.arg(port.to_string());
-            cmd.stdout(Stdio::piped());
-            cmd.stderr(Stdio::piped());
+            // 将 WebSocket 模式的 stdout/stderr 改为 inherit，避免管道未消费导致阻塞/退出
+            cmd.stdout(Stdio::inherit());
+            cmd.stderr(Stdio::inherit());
             cmd.stdin(Stdio::null()); // No stdin needed for WebSocket
 
             let child = cmd
@@ -104,13 +121,39 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
 
             self.process = Some(child);
 
-            // Wait for process to start
-            sleep(Duration::from_secs(3)).await;
+            // Wait longer for process to start and WebSocket server to be ready
+            tracing::info!("Waiting for iFlow process to start...");
+            sleep(Duration::from_secs(8)).await;
+            
+            // Verify the port is actually listening with more retries and longer timeout
+            let mut attempts = 0;
+            let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
+            
+            while attempts < max_attempts {
+                if Self::is_port_listening(port) {
+                    tracing::info!("iFlow WebSocket server is ready on port {}", port);
+                    break;
+                }
+                
+                attempts += 1;
+                if attempts % 5 == 0 {
+                    tracing::info!("Still waiting for iFlow to be ready... (attempt {}/{})", attempts, max_attempts);
+                }
+                
+                sleep(Duration::from_secs(1)).await;
+            }
+            
+            if attempts >= max_attempts {
+                return Err(IFlowError::ProcessManager(format!(
+                    "iFlow process failed to start WebSocket server on port {} after {} seconds", 
+                    port, max_attempts
+                )));
+            }
 
             tracing::info!("iFlow process started with WebSocket support on port {}", port);
 
-            // Return the WebSocket URL
-            Ok(Some(format!("ws://localhost:{}/acp", port)))
+            // Return the WebSocket URL with peer parameter
+            Ok(Some(format!("ws://localhost:{}/acp?peer=iflow", port)))
         } else {
             tracing::info!("Starting iFlow process with experimental ACP and stdio support");
 
@@ -128,7 +171,7 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             self.process = Some(child);
 
             // Wait for process to start
-            sleep(Duration::from_secs(3)).await;
+            sleep(Duration::from_secs(5)).await;
 
             tracing::info!("iFlow process started with stdio support");
 
