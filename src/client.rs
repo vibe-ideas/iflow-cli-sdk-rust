@@ -4,6 +4,7 @@
 //! using the Agent Communication Protocol (ACP) over stdio or WebSocket.
 
 use crate::error::{IFlowError, Result};
+use crate::logger::MessageLogger;
 use crate::process_manager::IFlowProcessManager;
 use crate::types::*;
 use crate::websocket_transport::WebSocketTransport;
@@ -47,6 +48,7 @@ pub struct IFlowClient {
     message_sender: mpsc::UnboundedSender<Message>,
     connected: Arc<Mutex<bool>>,
     connection: Option<Connection>,
+    logger: Option<MessageLogger>,
 }
 
 /// Stream of messages from iFlow
@@ -89,8 +91,10 @@ impl Stream for MessageStream {
 // Implement the Client trait for handling ACP messages
 struct IFlowClientHandler {
     message_sender: mpsc::UnboundedSender<Message>,
+    logger: Option<MessageLogger>,
 }
 
+#[async_trait::async_trait(?Send)]
 #[async_trait::async_trait(?Send)]
 impl Client for IFlowClientHandler {
     async fn request_permission(
@@ -181,7 +185,12 @@ impl Client for IFlowClientHandler {
                     ContentBlock::Resource(_) => "<resource>".into(),
                 };
                 let msg = Message::Assistant { content: text };
-                let _ = self.message_sender.send(msg);
+                let _ = self.message_sender.send(msg.clone());
+                
+                // Log the message if logger is available
+                if let Some(logger) = &self.logger {
+                    let _ = logger.log_message(&msg).await;
+                }
             }
             SessionUpdate::UserMessageChunk { content } => {
                 let text = match content {
@@ -192,7 +201,12 @@ impl Client for IFlowClientHandler {
                     ContentBlock::Resource(_) => "<resource>".into(),
                 };
                 let msg = Message::User { content: text };
-                let _ = self.message_sender.send(msg);
+                let _ = self.message_sender.send(msg.clone());
+                
+                // Log the message if logger is available
+                if let Some(logger) = &self.logger {
+                    let _ = logger.log_message(&msg).await;
+                }
             }
             SessionUpdate::ToolCall(tool_call) => {
                 let msg = Message::ToolCall {
@@ -200,7 +214,12 @@ impl Client for IFlowClientHandler {
                     name: tool_call.title.clone(),
                     status: format!("{:?}", tool_call.status),
                 };
-                let _ = self.message_sender.send(msg);
+                let _ = self.message_sender.send(msg.clone());
+                
+                // Log the message if logger is available
+                if let Some(logger) = &self.logger {
+                    let _ = logger.log_message(&msg).await;
+                }
             }
             SessionUpdate::Plan(plan) => {
                 let msg = Message::Plan {
@@ -210,7 +229,12 @@ impl Client for IFlowClientHandler {
                         .map(|entry| entry.content)
                         .collect(),
                 };
-                let _ = self.message_sender.send(msg);
+                let _ = self.message_sender.send(msg.clone());
+                
+                // Log the message if logger is available
+                if let Some(logger) = &self.logger {
+                    let _ = logger.log_message(&msg).await;
+                }
             }
             SessionUpdate::AgentThoughtChunk { .. }
             | SessionUpdate::ToolCallUpdate(_)
@@ -248,6 +272,13 @@ impl IFlowClient {
     pub fn new(options: Option<IFlowOptions>) -> Self {
         let options = options.unwrap_or_default();
         let (sender, receiver) = mpsc::unbounded_channel();
+        
+        // Initialize logger if enabled
+        let logger = if options.log_config.enabled {
+            MessageLogger::new(options.log_config.clone()).ok()
+        } else {
+            None
+        };
 
         Self {
             options,
@@ -255,6 +286,7 @@ impl IFlowClient {
             message_sender: sender,
             connected: Arc::new(Mutex::new(false)),
             connection: None,
+            logger,
         }
     }
 
@@ -308,6 +340,7 @@ impl IFlowClient {
         // Create ACP client connection
         let handler = IFlowClientHandler {
             message_sender: self.message_sender.clone(),
+            logger: self.logger.clone(),
         };
 
         let (conn, handle_io) =
