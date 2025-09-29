@@ -1,0 +1,567 @@
+//! ACP (Agent Communication Protocol) implementation for iFlow SDK
+//!
+//! This module implements the ACP protocol for communication
+//! between the SDK and iFlow. It handles the JSON-RPC based messaging
+//! and protocol flow.
+
+use crate::error::{IFlowError, Result};
+use crate::types::{Message, IFlowOptions};
+use crate::websocket_transport::WebSocketTransport;
+// Remove unused imports
+use tokio::sync::mpsc::UnboundedSender;
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::time::Duration;
+use tokio::time::timeout;
+use tracing::info;
+
+/// ACP protocol handler for iFlow communication
+///
+/// Implements the Agent Communication Protocol (ACP) which
+/// defines the interaction between GUI applications and AI agents.
+pub struct ACPProtocol {
+    /// WebSocket transport for communication
+    transport: WebSocketTransport,
+    /// Whether the protocol has been initialized
+    initialized: bool,
+    /// Whether authentication has been completed
+    authenticated: bool,
+    /// Request ID counter
+    request_id: u32,
+    /// Sender for messages to be processed by the client
+    message_sender: UnboundedSender<Message>,
+    /// Protocol version
+    protocol_version: u32,
+}
+
+impl ACPProtocol {
+    /// Initialize ACP protocol handler
+    ///
+    /// # Arguments
+    /// * `transport` - WebSocket transport for communication
+    /// * `message_sender` - Sender for messages to be processed by the client
+    pub fn new(transport: WebSocketTransport, message_sender: UnboundedSender<Message>) -> Self {
+        Self {
+            transport,
+            initialized: false,
+            authenticated: false,
+            request_id: 0,
+            message_sender,
+            protocol_version: 1,
+        }
+    }
+
+    /// Check if the protocol has been initialized
+    ///
+    /// # Returns
+    /// True if initialized, False otherwise
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
+    }
+
+    /// Check if the protocol has been authenticated
+    ///
+    /// # Returns
+    /// True if authenticated, False otherwise
+    pub fn is_authenticated(&self) -> bool {
+        self.authenticated
+    }
+
+    /// Generate next request ID
+    ///
+    /// # Returns
+    /// Unique request ID
+    fn next_request_id(&mut self) -> u32 {
+        self.request_id += 1;
+        self.request_id
+    }
+
+    /// Initialize the protocol connection
+    ///
+    /// Performs the ACP initialization handshake:
+    /// 1. Wait for //ready signal
+    /// 2. Send initialize request with optional configs
+    /// 3. Process initialize response
+    ///
+    /// # Arguments
+    /// * `options` - Configuration options
+    ///
+    /// # Returns
+    /// * `Ok(())` if initialization was successful
+    /// * `Err(IFlowError)` if initialization failed
+    pub async fn initialize(&mut self, options: &IFlowOptions) -> Result<()> {
+        if self.initialized {
+            tracing::warn!("Protocol already initialized");
+            return Ok(());
+        }
+
+        info!("Initializing ACP protocol");
+
+        // Wait for //ready signal with timeout
+        info!("Waiting for //ready signal...");
+        let ready_timeout = Duration::from_secs(10);
+        
+        loop {
+            let msg = timeout(ready_timeout, self.transport.receive())
+                .await
+                .map_err(|_| IFlowError::Timeout("Timeout waiting for //ready signal".to_string()))?
+                .map_err(|e| IFlowError::Connection(format!("Failed to receive message: {}", e)))?;
+
+            if msg.trim() == "//ready" {
+                info!("Received //ready signal");
+                break;
+            } else if msg.starts_with("//") {
+                // Log other control messages
+                tracing::debug!("Control message: {}", msg);
+            } else {
+                // Not a control message, put it back for later processing?
+                // For now, we'll continue waiting for //ready
+                tracing::debug!("Non-control message received while waiting for //ready: {}", msg);
+            }
+        }
+
+        // Send initialize request
+        let request_id = self.next_request_id();
+        let mut params = json!({
+            "protocolVersion": self.protocol_version,
+            "clientCapabilities": {
+                "fs": {
+                    "readTextFile": true,
+                    "writeTextFile": true
+                }
+            }
+        });
+
+        // Add optional configurations from options
+        // TODO: Fix McpServer field access
+        if !options.mcp_servers.is_empty() {
+            // For now, we'll create an empty array
+            params["mcpServers"] = json!([]);
+        }
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "initialize",
+            "params": params,
+        });
+
+        self.transport.send(&request).await?;
+        info!("Sent initialize request");
+
+        // Wait for initialize response with timeout
+        let response_timeout = Duration::from_secs(10);
+        let response = timeout(response_timeout, self.wait_for_response(request_id))
+            .await
+            .map_err(|_| IFlowError::Timeout("Timeout waiting for initialize response".to_string()))?
+            .map_err(|e| IFlowError::Protocol(format!("Failed to initialize: {}", e)))?;
+
+        if let Some(result) = response.get("result") {
+            self.authenticated = result.get("isAuthenticated").and_then(|v| v.as_bool()).unwrap_or(false);
+            self.initialized = true;
+            info!("Initialized with protocol version: {:?}, authenticated: {}", 
+                  result.get("protocolVersion"), self.authenticated);
+        } else if let Some(error) = response.get("error") {
+            return Err(IFlowError::Protocol(format!("Initialize failed: {:?}", error)));
+        } else {
+            return Err(IFlowError::Protocol("Invalid initialize response".to_string()));
+        }
+
+        Ok(())
+    }
+
+    /// Perform authentication if required
+    ///
+    /// This method should be called if initialize() indicates
+    /// that authentication is needed (isAuthenticated = False).
+    ///
+    /// # Arguments
+    /// * `method_id` - Authentication method ID
+    /// * `method_info` - Optional authentication info
+    ///
+    /// # Returns
+    /// * `Ok(())` if authentication was successful
+    /// * `Err(IFlowError)` if authentication failed
+    pub async fn authenticate(&mut self, method_id: &str, method_info: Option<HashMap<String, String>>) -> Result<()> {
+        if self.authenticated {
+            info!("Already authenticated");
+            return Ok(());
+        }
+
+        let request_id = self.next_request_id();
+        let mut params = json!({
+            "methodId": method_id,
+        });
+
+        if let Some(info) = method_info {
+            params["methodInfo"] = json!(info);
+        }
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "authenticate",
+            "params": params,
+        });
+
+        self.transport.send(&request).await?;
+        info!("Sent authenticate request with method: {}", method_id);
+
+        // Wait for authentication response with timeout
+        let response_timeout = Duration::from_secs(10);
+        let response = timeout(response_timeout, self.wait_for_response(request_id))
+            .await
+            .map_err(|_| IFlowError::Timeout("Timeout waiting for authentication response".to_string()))?
+            .map_err(|e| IFlowError::Protocol(format!("Failed to authenticate: {}", e)))?;
+
+        if let Some(result) = response.get("result") {
+            if let Some(response_method) = result.get("methodId").and_then(|v| v.as_str()) {
+                if response_method == method_id {
+                    self.authenticated = true;
+                    info!("Authentication successful with method: {}", response_method);
+                } else {
+                    tracing::warn!("Unexpected methodId in response: {} (expected {})", 
+                                  response_method, method_id);
+                    // Still mark as authenticated if we got a response
+                    self.authenticated = true;
+                }
+            } else {
+                self.authenticated = true;
+            }
+        } else if let Some(error) = response.get("error") {
+            return Err(IFlowError::Authentication(format!("Authentication failed: {:?}", error)));
+        } else {
+            return Err(IFlowError::Protocol("Invalid authenticate response".to_string()));
+        }
+
+        Ok(())
+    }
+
+    /// Create a new session
+    ///
+    /// # Arguments
+    /// * `cwd` - Working directory for the session
+    ///
+    /// # Returns
+    /// * `Ok(String)` containing the session ID
+    /// * `Err(IFlowError)` if session creation failed
+    pub async fn create_session(&mut self, cwd: &str) -> Result<String> {
+        if !self.initialized {
+            return Err(IFlowError::Protocol("Protocol not initialized. Call initialize() first.".to_string()));
+        }
+
+        if !self.authenticated {
+            return Err(IFlowError::Protocol("Not authenticated. Call authenticate() first.".to_string()));
+        }
+
+        let request_id = self.next_request_id();
+        let params = json!({
+            "cwd": cwd,
+            "mcpServers": [],
+        });
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "session/new",
+            "params": params,
+        });
+
+        self.transport.send(&request).await?;
+        info!("Sent session/new request with cwd: {}", cwd);
+
+        // Wait for response with timeout
+        let response_timeout = Duration::from_secs(10);
+        let response = timeout(response_timeout, self.wait_for_response(request_id))
+            .await
+            .map_err(|_| IFlowError::Timeout("Timeout waiting for session creation response".to_string()))?
+            .map_err(|e| IFlowError::Protocol(format!("Failed to create session: {}", e)))?;
+
+        if let Some(result) = response.get("result") {
+            if let Some(session_id) = result.get("sessionId").and_then(|v| v.as_str()) {
+                info!("Created session: {}", session_id);
+                Ok(session_id.to_string())
+            } else {
+                info!("Invalid session/new response, using fallback ID: session_{}", request_id);
+                Ok(format!("session_{}", request_id))
+            }
+        } else if let Some(error) = response.get("error") {
+            Err(IFlowError::Protocol(format!("session/new failed: {:?}", error)))
+        } else {
+            Err(IFlowError::Protocol("Invalid session/new response".to_string()))
+        }
+    }
+
+    /// Send a prompt to the session and wait for response
+    ///
+    /// # Arguments
+    /// * `session_id` - The session ID from create_session()
+    /// * `prompt` - The prompt text to send
+    ///
+    /// # Returns
+    /// * `Ok(u32)` containing the request ID for tracking the message
+    /// * `Err(IFlowError)` if sending failed
+    pub async fn send_prompt(&mut self, session_id: &str, prompt: &str) -> Result<u32> {
+        if !self.initialized {
+            return Err(IFlowError::Protocol("Protocol not initialized. Call initialize() first.".to_string()));
+        }
+
+        if !self.authenticated {
+            return Err(IFlowError::Protocol("Not authenticated. Call authenticate() first.".to_string()));
+        }
+
+        let request_id = self.next_request_id();
+        // Create prompt as a list of content blocks
+        let prompt_blocks = vec![json!({
+            "type": "text",
+            "text": prompt
+        })];
+        
+        let params = json!({
+            "sessionId": session_id,
+            "prompt": prompt_blocks,
+        });
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "session/prompt",
+            "params": params,
+        });
+
+        self.transport.send(&request).await?;
+        info!("Sent session/prompt");
+
+        // Wait for response
+        let response_timeout = Duration::from_secs(30);
+        let response = timeout(response_timeout, self.wait_for_response(request_id))
+            .await
+            .map_err(|_| IFlowError::Timeout("Timeout waiting for prompt response".to_string()))?
+            .map_err(|e| IFlowError::Protocol(format!("Failed to send prompt: {}", e)))?;
+
+        // Check for errors in response
+        if let Some(error) = response.get("error") {
+            return Err(IFlowError::Protocol(format!("Prompt failed: {:?}", error)));
+        }
+
+        // Send task finish message to indicate completion
+        let msg = Message::TaskFinish { 
+            reason: Some("completed".to_string()) 
+        };
+        let _ = self.message_sender.send(msg);
+
+        Ok(request_id)
+    }
+
+    /// Wait for a response to a specific request
+    ///
+    /// # Arguments
+    /// * `request_id` - The ID of the request to wait for
+    ///
+    /// # Returns
+    /// * `Ok(Value)` containing the response
+    /// * `Err(IFlowError)` if waiting failed
+    async fn wait_for_response(&mut self, request_id: u32) -> Result<Value> {
+        loop {
+            let msg = self.transport.receive().await?;
+            
+            // Skip control messages
+            if msg.starts_with("//") {
+                tracing::debug!("Control message: {}", msg);
+                continue;
+            }
+
+            // Try to parse as JSON
+            let data: Value = serde_json::from_str(&msg)
+                .map_err(|e| IFlowError::JsonParse(e))?;
+
+            // Check if this is the response we're waiting for
+            if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
+                if id == request_id as u64 {
+                    return Ok(data);
+                }
+            }
+
+            // If not our response, process as a notification
+            self.handle_notification(data).await?;
+        }
+    }
+
+    /// Handle incoming notifications from the server
+    ///
+    /// # Arguments
+    /// * `data` - The JSON data of the notification
+    ///
+    /// # Returns
+    /// * `Ok(())` if handling was successful
+    /// * `Err(IFlowError)` if handling failed
+    async fn handle_notification(&mut self, data: Value) -> Result<()> {
+        // Handle method calls from server (client interface)
+        if let Some(method) = data.get("method").and_then(|v| v.as_str()) {
+            if data.get("result").is_none() && data.get("error").is_none() {
+                self.handle_client_method(method, data.clone()).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle client method calls from the server
+    ///
+    /// # Arguments
+    /// * `method` - The method name
+    /// * `data` - The JSON data of the method call
+    ///
+    /// # Returns
+    /// * `Ok(())` if handling was successful
+    /// * `Err(IFlowError)` if handling failed
+    async fn handle_client_method(&mut self, method: &str, data: Value) -> Result<()> {
+        let params = data.get("params").cloned().unwrap_or(Value::Null);
+        let request_id = data.get("id").and_then(|v| v.as_u64());
+
+        match method {
+            "session/update" => {
+                if let Some(update_obj) = params.get("update").and_then(|v| v.as_object()) {
+                    if let Some(session_update) = update_obj.get("sessionUpdate").and_then(|v| v.as_str()) {
+                        self.handle_session_update(session_update, update_obj, request_id).await?;
+                    }
+                }
+            }
+            _ => {
+                tracing::warn!("Unknown method: {}", method);
+                // Send error response for unknown methods
+                if let Some(id) = request_id {
+                    let error_response = json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "error": {
+                            "code": -32601,
+                            "message": "Method not found"
+                        }
+                    });
+                    self.transport.send(&error_response).await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle session update notifications
+    ///
+    /// # Arguments
+    /// * `update_type` - The type of update
+    /// * `update` - The update data
+    /// * `request_id` - Optional request ID for responses
+    ///
+    /// # Returns
+    /// * `Ok(())` if handling was successful
+    /// * `Err(IFlowError)` if handling failed
+    async fn handle_session_update(&mut self, update_type: &str, update: &serde_json::Map<String, Value>, request_id: Option<u64>) -> Result<()> {
+        match update_type {
+            "agent_message_chunk" => {
+                if let Some(content) = update.get("content") {
+                    let text = match content {
+                        Value::Object(obj) => {
+                            if let Some(text_content) = obj.get("text").and_then(|v| v.as_str()) {
+                                text_content.to_string()
+                            } else {
+                                "<unknown>".to_string()
+                            }
+                        }
+                        _ => "<unknown>".to_string()
+                    };
+                    
+                    let msg = Message::Assistant { content: text };
+                    let _ = self.message_sender.send(msg);
+                }
+            }
+            "user_message_chunk" => {
+                if let Some(content) = update.get("content") {
+                    let text = match content {
+                        Value::Object(obj) => {
+                            if let Some(text_content) = obj.get("text").and_then(|v| v.as_str()) {
+                                text_content.to_string()
+                            } else {
+                                "<unknown>".to_string()
+                            }
+                        }
+                        _ => "<unknown>".to_string()
+                    };
+                    
+                    let msg = Message::User { content: text };
+                    let _ = self.message_sender.send(msg);
+                }
+            }
+            "tool_call" => {
+                if let Some(tool_call) = update.get("toolCall") {
+                    let id = tool_call.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = tool_call.get("title").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+                    let status = tool_call.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                    
+                    let msg = Message::ToolCall { id, name, status };
+                    let _ = self.message_sender.send(msg);
+                }
+            }
+            "plan" => {
+                if let Some(entries) = update.get("entries").and_then(|v| v.as_array()) {
+                    let entries: Vec<String> = entries.iter()
+                        .filter_map(|entry| entry.get("content").and_then(|v| v.as_str()))
+                        .map(|s| s.to_string())
+                        .collect();
+                    
+                    let msg = Message::Plan { entries };
+                    let _ = self.message_sender.send(msg);
+                }
+            }
+            "tool_call_update" => {
+                // For now, we'll just acknowledge the update if there's a request ID
+                if let Some(id) = request_id {
+                    let response = json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": null
+                    });
+                    self.transport.send(&response).await?;
+                }
+            }
+            "agent_thought_chunk" | "current_mode_update" | "available_commands_update" => {
+                // Ignore these for now
+            }
+            _ => {
+                tracing::debug!("Unhandled session update type: {}", update_type);
+            }
+        }
+
+        // Send acknowledgment for notifications that require it
+        if let Some(id) = request_id {
+            match update_type {
+                "tool_call_update" | "notifyTaskFinish" => {
+                    let response = json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": null
+                    });
+                    self.transport.send(&response).await?;
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Close the protocol connection
+    pub async fn close(&mut self) -> Result<()> {
+        self.transport.close().await?;
+        Ok(())
+    }
+
+    /// Check if the protocol is connected
+    ///
+    /// # Returns
+    /// True if connected, False otherwise
+    pub fn is_connected(&self) -> bool {
+        self.transport.is_connected()
+    }
+}

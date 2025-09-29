@@ -1,21 +1,39 @@
 //! Main client implementation for iFlow SDK
 //!
 //! This module provides the core client functionality for communicating with iFlow
-//! using the Agent Communication Protocol (ACP) over stdio.
+//! using the Agent Communication Protocol (ACP) over stdio or WebSocket.
 
 use crate::error::{IFlowError, Result};
 use crate::process_manager::IFlowProcessManager;
 use crate::types::*;
-use agent_client_protocol::{Client, ClientSideConnection, ContentBlock, SessionUpdate};
+use crate::websocket_transport::WebSocketTransport;
+use crate::acp_protocol::ACPProtocol;
+use agent_client_protocol::{Agent, Client, ClientSideConnection, ContentBlock, SessionUpdate, SessionId};
 use futures::{FutureExt, pin_mut, stream::Stream};
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::process::ChildStdin;
+// ChildStdin import moved to where it's used
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::info;
+
+/// Connection type for iFlow client
+enum Connection {
+    /// Stdio connection using agent-client-protocol
+    Stdio {
+        acp_client: ClientSideConnection,
+        process_manager: Option<IFlowProcessManager>,
+        session_id: Option<SessionId>,
+        initialized: bool,
+    },
+    /// WebSocket connection using custom implementation
+    WebSocket {
+        acp_protocol: ACPProtocol,
+        session_id: Option<String>,
+    },
+}
 
 /// Main client for bidirectional communication with iFlow
 ///
@@ -26,9 +44,7 @@ pub struct IFlowClient {
     message_receiver: Arc<Mutex<mpsc::UnboundedReceiver<Message>>>,
     message_sender: mpsc::UnboundedSender<Message>,
     connected: Arc<Mutex<bool>>,
-    acp_client: Option<ClientSideConnection>,
-    process_manager: Option<IFlowProcessManager>,
-    stdin: Option<ChildStdin>,
+    connection: Option<Connection>,
 }
 
 /// Stream of messages from iFlow
@@ -236,16 +252,14 @@ impl IFlowClient {
             message_receiver: Arc::new(Mutex::new(receiver)),
             message_sender: sender,
             connected: Arc::new(Mutex::new(false)),
-            acp_client: None,
-            process_manager: None,
-            stdin: None,
+            connection: None,
         }
     }
 
     /// Connect to iFlow
     ///
     /// Establishes a connection to iFlow, starting the process if auto_start_process is enabled.
-    /// This method handles all the necessary setup for communication via stdio.
+    /// This method handles all the necessary setup for communication via stdio or WebSocket.
     ///
     /// # Returns
     /// * `Ok(())` if the connection was successful
@@ -256,25 +270,35 @@ impl IFlowClient {
             return Ok(());
         }
 
+        // Check if we should use WebSocket or stdio
+        if self.options.websocket_url.is_some() {
+            self.connect_websocket().await
+        } else {
+            self.connect_stdio().await
+        }
+    }
+
+    /// Connect to iFlow via stdio
+    async fn connect_stdio(&mut self) -> Result<()> {
         info!("Connecting to iFlow via stdio");
 
         // Start iFlow process if auto_start_process is enabled
-        if self.options.auto_start_process {
-            let mut process_manager = IFlowProcessManager::new(self.options.process_start_port);
-            let _url = process_manager.start().await?;
-            self.process_manager = Some(process_manager);
+        let mut process_manager = if self.options.auto_start_process {
+            let mut pm = IFlowProcessManager::new(self.options.process_start_port);
+            let _url = pm.start(false).await?; // false for stdio
             info!("iFlow process started");
-        }
+            Some(pm)
+        } else {
+            None
+        };
 
         // Get stdin and stdout from the process manager
-        let stdin = self
-            .process_manager
+        let stdin = process_manager
             .as_mut()
             .and_then(|pm| pm.take_stdin())
             .ok_or_else(|| IFlowError::Connection("Failed to get stdin".to_string()))?;
 
-        let stdout = self
-            .process_manager
+        let stdout = process_manager
             .as_mut()
             .and_then(|pm| pm.take_stdout())
             .ok_or_else(|| IFlowError::Connection("Failed to get stdout".to_string()))?;
@@ -293,10 +317,69 @@ impl IFlowClient {
         tokio::task::spawn_local(handle_io);
 
         // Store the client
-        self.acp_client = Some(conn);
+        self.connection = Some(Connection::Stdio {
+            acp_client: conn,
+            process_manager,
+            session_id: None,
+            initialized: false,
+        });
 
         *self.connected.lock().await = true;
         info!("Connected to iFlow via stdio");
+
+        Ok(())
+    }
+
+    /// Connect to iFlow via WebSocket
+    async fn connect_websocket(&mut self) -> Result<()> {
+        info!("Connecting to iFlow via WebSocket");
+        
+        let websocket_url = self.options.websocket_url.as_ref()
+            .ok_or_else(|| IFlowError::Connection("WebSocket URL not configured".to_string()))?
+            .clone();
+
+        // Check if we need to start iFlow process
+        let final_url = if self.options.auto_start_process && websocket_url.starts_with("ws://localhost:") {
+            info!("iFlow auto-start enabled, checking if iFlow is already running...");
+            
+            // Try to connect first to see if iFlow is already running
+            let mut test_transport = WebSocketTransport::new(websocket_url.clone(), 2.0);
+            if test_transport.connect().await.is_err() {
+                // iFlow not running, start it
+                info!("iFlow not running, starting process...");
+                let mut pm = IFlowProcessManager::new(self.options.process_start_port);
+                let iflow_url = pm.start(true).await? // true for websocket
+                    .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
+                info!("Started iFlow process at {}", iflow_url);
+                
+                // Use the URL returned by the process manager
+                iflow_url
+            } else {
+                // iFlow is already running, use the original URL
+                websocket_url.clone()
+            }
+        } else {
+            // Don't auto-start, use the original URL
+            websocket_url.clone()
+        };
+
+        // Create WebSocket transport
+        let mut transport = WebSocketTransport::new(final_url, self.options.timeout);
+
+        // Connect to WebSocket
+        transport.connect().await?;
+
+        // Create ACP protocol handler
+        let acp_protocol = ACPProtocol::new(transport, self.message_sender.clone());
+
+        // Store the connection
+        self.connection = Some(Connection::WebSocket {
+            acp_protocol,
+            session_id: None,
+        });
+
+        *self.connected.lock().await = true;
+        info!("Connected to iFlow via WebSocket");
 
         Ok(())
     }
@@ -314,16 +397,43 @@ impl IFlowClient {
     /// # Returns
     /// * `Ok(())` if the message was sent successfully
     /// * `Err(IFlowError)` if there was an error
-    pub async fn send_message(&self, text: &str, _files: Option<Vec<&Path>>) -> Result<()> {
+    pub async fn send_message(&mut self, text: &str, _files: Option<Vec<&Path>>) -> Result<()> {
         if !*self.connected.lock().await {
             return Err(IFlowError::NotConnected);
         }
 
-        // Send via ACP client
-        if let Some(client) = &self.acp_client {
-            use agent_client_protocol::Agent;
+        // We need to handle the connection in a way that avoids borrowing issues
+        // Let's check the connection type first
+        let is_websocket = matches!(self.connection, Some(Connection::WebSocket { .. }));
+        
+        if is_websocket {
+            // Handle WebSocket connection by temporarily taking ownership
+            if let Some(Connection::WebSocket { mut acp_protocol, mut session_id }) = self.connection.take() {
+                let result = self.send_message_websocket(&mut acp_protocol, &mut session_id, text).await;
+                // Put the connection back
+                self.connection = Some(Connection::WebSocket { acp_protocol, session_id });
+                result
+            } else {
+                Err(IFlowError::NotConnected)
+            }
+        } else {
+            // Handle Stdio connection by temporarily taking ownership
+            if let Some(Connection::Stdio { acp_client, process_manager, mut session_id, mut initialized }) = self.connection.take() {
+                let result = self.send_message_stdio(&acp_client, &mut session_id, &mut initialized, text).await;
+                // Put the connection back
+                self.connection = Some(Connection::Stdio { acp_client, process_manager, session_id, initialized });
+                result
+            } else {
+                Err(IFlowError::NotConnected)
+            }
+        }
+    }
 
-            // First initialize the connection
+    /// Send a message via stdio connection
+    async fn send_message_stdio(&self, client: &ClientSideConnection, session_id: &mut Option<SessionId>, initialized: &mut bool, text: &str) -> Result<()> {
+
+        // Initialize the connection if not already done
+        if !*initialized {
             client
                 .initialize(agent_client_protocol::InitializeRequest {
                     protocol_version: agent_client_protocol::V1,
@@ -333,7 +443,12 @@ impl IFlowClient {
                 .await
                 .map_err(|e| IFlowError::Connection(format!("Failed to initialize: {}", e)))?;
 
-            // Create a new session
+            *initialized = true;
+            info!("Initialized stdio connection");
+        }
+
+        // Create a new session if we don't have one
+        if session_id.is_none() {
             let session_response = client
                 .new_session(agent_client_protocol::NewSessionRequest {
                     mcp_servers: Vec::new(),
@@ -343,30 +458,61 @@ impl IFlowClient {
                 .await
                 .map_err(|e| IFlowError::Connection(format!("Failed to create session: {}", e)))?;
 
-            // Send the prompt and wait for completion
-            let prompt_response = client
-                .prompt(agent_client_protocol::PromptRequest {
-                    session_id: session_response.session_id,
-                    prompt: vec![text.into()],
-                    meta: None,
-                })
-                .await
-                .map_err(|e| IFlowError::Connection(format!("Failed to send message: {}", e)))?;
-
-            // Send task finish message
-            let message = Message::TaskFinish {
-                reason: Some(format!("{:?}", prompt_response.stop_reason)),
-            };
-
-            self.message_sender
-                .send(message)
-                .map_err(|_| IFlowError::Connection("Message channel closed".to_string()))?;
-
-            info!("Sent message to iFlow: {}", text);
-            Ok(())
-        } else {
-            Err(IFlowError::Connection("Not connected".to_string()))
+            *session_id = Some(session_response.session_id);
+            info!("Created new session: {:?}", session_id);
         }
+
+        // Use the existing session
+        let current_session_id = session_id.as_ref().unwrap();
+
+        // Send the prompt and wait for completion
+        let _prompt_response = client
+            .prompt(agent_client_protocol::PromptRequest {
+                session_id: current_session_id.clone(),
+                prompt: vec![agent_client_protocol::ContentBlock::Text(agent_client_protocol::TextContent {
+                    text: text.to_string(),
+                    annotations: None,
+                    meta: None,
+                })],
+                meta: None,
+            })
+            .await
+            .map_err(|e| IFlowError::Connection(format!("Failed to send message: {}", e)))?;
+
+        info!("Sent message to iFlow via stdio: {}", text);
+        Ok(())
+    }
+
+    /// Send a message via WebSocket connection
+    async fn send_message_websocket(&mut self, protocol: &mut ACPProtocol, session_id: &mut Option<String>, text: &str) -> Result<()> {
+        // Initialize the protocol if not already done
+        if !protocol.is_initialized() {
+            protocol.initialize(&self.options).await?;
+            
+            // Authenticate if needed
+            if !protocol.is_authenticated() {
+                if let Some(method_id) = &self.options.auth_method_id {
+                    protocol.authenticate(method_id, None).await?;
+                } else {
+                    // Try default authentication
+                    protocol.authenticate("iflow", None).await?;
+                }
+            }
+            
+            // Create a new session
+            let new_session_id = protocol.create_session(".").await?;
+            *session_id = Some(new_session_id);
+        }
+        
+        // Make sure we have a session
+        let session_id = session_id.as_ref()
+            .ok_or_else(|| IFlowError::Connection("No session available".to_string()))?;
+
+        // Send the prompt and get the request ID
+        let _request_id = protocol.send_prompt(session_id, text).await?;
+
+        info!("Sent message to iFlow: {}", text);
+        Ok(())
     }
 
     /// Interrupt the current message generation
@@ -382,20 +528,15 @@ impl IFlowClient {
             return Err(IFlowError::NotConnected);
         }
 
-        // Send interrupt via ACP client
-        if let Some(_client) = &self.acp_client {
-            // For now, we'll just send a task finish message to our own channel
-            let message = Message::TaskFinish {
-                reason: Some("interrupted".to_string()),
-            };
+        // Send interrupt message to our own channel
+        let message = Message::TaskFinish {
+            reason: Some("interrupted".to_string()),
+        };
 
-            self.message_sender
-                .send(message)
-                .map_err(|_| IFlowError::Connection("Message channel closed".to_string()))?;
-            Ok(())
-        } else {
-            Err(IFlowError::Connection("Not connected".to_string()))
-        }
+        self.message_sender
+            .send(message)
+            .map_err(|_| IFlowError::Connection("Message channel closed".to_string()))?;
+        Ok(())
     }
 
     /// Receive messages from iFlow
@@ -434,14 +575,23 @@ impl IFlowClient {
     pub async fn disconnect(&mut self) -> Result<()> {
         *self.connected.lock().await = false;
 
-        // Stop iFlow process if we started it
-        if let Some(mut process_manager) = self.process_manager.take() {
-            process_manager.stop().await?;
+        // Clean up based on connection type
+        match &mut self.connection {
+            Some(Connection::Stdio { process_manager, .. }) => {
+                // Stop iFlow process if we started it
+                if let Some(mut pm) = process_manager.take() {
+                    pm.stop().await?;
+                }
+            }
+            Some(Connection::WebSocket { acp_protocol, .. }) => {
+                // Close WebSocket connection
+                let _ = acp_protocol.close().await;
+            }
+            None => {}
         }
 
         // Clear resources
-        self.acp_client = None;
-        self.stdin = None;
+        self.connection = None;
 
         info!("Disconnected from iFlow");
         Ok(())

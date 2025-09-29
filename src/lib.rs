@@ -8,6 +8,8 @@
 //! ## Basic usage with automatic process management
 //! ```no_run
 //! use iflow_cli_sdk_rust::IFlowClient;
+//! use futures::stream::StreamExt;
+//! use std::io::Write;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -50,12 +52,14 @@
 //! }
 //! ```
 
+pub mod acp_protocol;
 pub mod client;
 pub mod error;
 pub mod logger;
 pub mod process_manager;
 pub mod query;
 pub mod types;
+pub mod websocket_transport;
 
 // Re-export main types
 pub use client::IFlowClient;

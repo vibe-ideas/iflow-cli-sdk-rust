@@ -5,7 +5,7 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 ## Features
 
 - 🚀 **Automatic Process Management** - SDK automatically starts and manages iFlow process
-- 🔌 **Stdio Communication** - Communicate with iFlow via stdio for better performance and reliability
+- 🔌 **Dual Communication Modes** - Communicate with iFlow via stdio or WebSocket
 - 🔄 **Bidirectional Communication** - Real-time streaming messages and responses
 - 🛠️ **Tool Call Management** - Fine-grained permission control for tool execution
 - 📋 **Task Planning** - Receive and process structured task plans
@@ -14,7 +14,7 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 
 ## TODO
 
-- [ ] Add support for WebSocket communication
+- [x] Add support for WebSocket communication
 - [ ] 🤖 **Sub-agent Support** - Track and manage multiple AI agents via `agent_id`
 
 ## Installation
@@ -116,6 +116,20 @@ let options = IFlowOptions::new()
     .with_auto_start_process(true);
 ```
 
+### WebSocket Configuration
+
+To use WebSocket communication instead of stdio:
+
+```rust
+use iflow_cli_sdk_rust::IFlowOptions;
+
+let options = IFlowOptions::new()
+    .with_websocket_url("ws://localhost:8090/acp")
+    .with_auto_start_process(true); // Auto-start when using WebSocket (default)
+```
+
+Just like with stdio communication, the SDK can automatically start the iFlow process when using WebSocket connections. The process will only be started if iFlow is not already running on the specified URL.
+
 ### Sandbox Mode
 
 The SDK now uses stdio for communication with iFlow, so there's no need for WebSocket URLs. The `for_sandbox` method is no longer applicable.
@@ -139,8 +153,11 @@ Run the examples:
 # Simple query example
 cargo run --example query
 
-# Interactive client example
+# Interactive client example (stdio)
 cargo run --example basic_client
+
+# Interactive client example (WebSocket)
+cargo run --example websocket_client
 
 # Test response handling
 cargo run --example test_response
@@ -162,12 +179,14 @@ cargo run --example logging_example
 
 The SDK is organized into several modules:
 
-- `client` - Main IFlowClient implementation with stdio communication
+- `client` - Main IFlowClient implementation with dual stdio/WebSocket communication
 - `types` - Type definitions and message structures
 - `process_manager` - iFlow process lifecycle management
 - `query` - Convenience functions for simple queries
 - `error` - Error types and handling
 - `logger` - Message logging functionality
+- `websocket_transport` - Low-level WebSocket communication layer
+- `acp_protocol` - ACP protocol implementation for WebSocket communication
 
 ## Requirements
 

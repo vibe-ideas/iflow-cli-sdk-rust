@@ -51,6 +51,8 @@ pub struct IFlowOptions {
     pub auth_method_id: Option<String>,
     /// Logger configuration
     pub log_config: LoggerConfig,
+    /// WebSocket URL for WebSocket connection (if None, use stdio)
+    pub websocket_url: Option<String>,
 }
 
 impl Default for IFlowOptions {
@@ -69,6 +71,7 @@ impl Default for IFlowOptions {
             process_start_port: 8090,
             auth_method_id: None,
             log_config: LoggerConfig::default(),
+            websocket_url: None,
         }
     }
 }
@@ -147,6 +150,15 @@ impl IFlowOptions {
     /// * `size` - Maximum log file size in bytes
     pub fn with_max_log_size(mut self, size: u64) -> Self {
         self.log_config.max_file_size = size;
+        self
+    }
+
+    /// Set WebSocket URL for WebSocket connection
+    ///
+    /// # Arguments
+    /// * `url` - The WebSocket URL to connect to
+    pub fn with_websocket_url<S: Into<String>>(mut self, url: S) -> Self {
+        self.websocket_url = Some(url.into());
         self
     }
 }
