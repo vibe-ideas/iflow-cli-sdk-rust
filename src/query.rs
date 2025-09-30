@@ -1,7 +1,9 @@
 use crate::client::IFlowClient;
 use crate::error::Result;
-use crate::types::Message;
+use crate::types::{Message, IFlowOptions};
 use futures::stream::StreamExt;
+use std::time::Duration;
+use tokio::time::timeout;
 
 /// Simple synchronous query to iFlow
 ///
@@ -30,7 +32,9 @@ pub async fn query(prompt: &str) -> Result<String> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            let mut client = IFlowClient::new(None);
+            // Create client with a reasonable timeout
+            let options = IFlowOptions::new().with_timeout(30.0);
+            let mut client = IFlowClient::new(Some(options));
             client.connect().await?;
 
             client.send_message(prompt, None).await?;
@@ -38,15 +42,29 @@ pub async fn query(prompt: &str) -> Result<String> {
             let mut response = String::new();
             let mut message_stream = client.messages();
 
-            while let Some(message) = message_stream.next().await {
-                match message {
-                    Message::Assistant { content } => {
-                        response.push_str(&content);
+            // 使用带超时的循环接收消息
+            let mut finished = false;
+            while !finished {
+                match timeout(Duration::from_secs(30), message_stream.next()).await {
+                    Ok(Some(message)) => {
+                        match message {
+                            Message::Assistant { content } => {
+                                response.push_str(&content);
+                            }
+                            Message::TaskFinish { .. } => {
+                                finished = true;
+                            }
+                            _ => {}
+                        }
                     }
-                    Message::TaskFinish { .. } => {
-                        break;
+                    Ok(None) => {
+                        // 流结束
+                        finished = true;
                     }
-                    _ => {}
+                    Err(_) => {
+                        // 超时
+                        finished = true;
+                    }
                 }
             }
 
@@ -93,7 +111,9 @@ pub async fn query_stream(prompt: &str) -> Result<impl futures::Stream<Item = St
     // Let's create the client and connection in the LocalSet context
     local
         .run_until(async {
-            let mut client = IFlowClient::new(None);
+            // Create client with a reasonable timeout
+            let options = IFlowOptions::new().with_timeout(30.0);
+            let mut client = IFlowClient::new(Some(options));
             client.connect().await?;
 
             client.send_message(prompt, None).await?;

@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         // Send a message
-        let prompt = "深度剖析如何使用 Go 重新实现这个项目";
+        let prompt = "How to use golang to refactor this project";
         println!("📤 Sending: {}", prompt);
         client.send_message(prompt, None).await?;
 
