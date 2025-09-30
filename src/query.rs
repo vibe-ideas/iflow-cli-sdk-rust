@@ -29,11 +29,39 @@ use tokio::time::timeout;
 /// }
 /// ```
 pub async fn query(prompt: &str) -> Result<String> {
+    query_with_timeout(prompt, 30.0).await
+}
+
+/// Simple synchronous query to iFlow with custom timeout
+///
+/// Sends a query to iFlow and waits for a complete response.
+/// This is a convenience function for simple request-response interactions.
+///
+/// # Arguments
+/// * `prompt` - The query prompt to send to iFlow
+/// * `timeout_secs` - Timeout in seconds
+///
+/// # Returns
+/// * `Ok(String)` containing the response from iFlow
+/// * `Err(IFlowError)` if there was an error
+///
+/// # Example
+/// ```no_run
+/// use iflow_cli_sdk_rust::query_with_timeout;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let response = query_with_timeout("What is 2 + 2?", 10.0).await?;
+///     println!("{}", response);
+///     Ok(())
+/// }
+/// ```
+pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<String> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            // Create client with a reasonable timeout
-            let options = IFlowOptions::new().with_timeout(30.0);
+            // Create client with the specified timeout
+            let options = IFlowOptions::new().with_timeout(timeout_secs);
             let mut client = IFlowClient::new(Some(options));
             client.connect().await?;
 
@@ -45,7 +73,7 @@ pub async fn query(prompt: &str) -> Result<String> {
             // 使用带超时的循环接收消息
             let mut finished = false;
             while !finished {
-                match timeout(Duration::from_secs(30), message_stream.next()).await {
+                match timeout(Duration::from_secs(timeout_secs as u64), message_stream.next()).await {
                     Ok(Some(message)) => {
                         match message {
                             Message::Assistant { content } => {
@@ -106,13 +134,49 @@ pub async fn query(prompt: &str) -> Result<String> {
 /// }
 /// ```
 pub async fn query_stream(prompt: &str) -> Result<impl futures::Stream<Item = String>> {
+    query_stream_with_timeout(prompt, 30.0).await
+}
+
+/// Stream responses from iFlow with custom timeout
+///
+/// Sends a query to iFlow and returns a stream of response chunks.
+/// This is useful for real-time output as the response is generated.
+///
+/// # Arguments
+/// * `prompt` - The query prompt to send to iFlow
+/// * `timeout_secs` - Timeout in seconds
+///
+/// # Returns
+/// * `Ok(impl Stream<Item = String>)` containing the response stream
+/// * `Err(IFlowError)` if there was an error
+///
+/// # Example
+/// ```no_run
+/// use iflow_cli_sdk_rust::query_stream_with_timeout;
+/// use futures::stream::StreamExt;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let mut stream = query_stream_with_timeout("Tell me a story", 10.0).await?;
+///     
+///     while let Some(chunk) = stream.next().await {
+///         print!("{}", chunk);
+///         // Flush stdout for real-time output
+///         use std::io::{self, Write};
+///         io::stdout().flush()?;
+///     }
+///     
+///     Ok(())
+/// }
+/// ```
+pub async fn query_stream_with_timeout(prompt: &str, timeout_secs: f64) -> Result<impl futures::Stream<Item = String>> {
     let local = tokio::task::LocalSet::new();
     // We need to run this in a LocalSet context but return a stream
     // Let's create the client and connection in the LocalSet context
     local
         .run_until(async {
-            // Create client with a reasonable timeout
-            let options = IFlowOptions::new().with_timeout(30.0);
+            // Create client with the specified timeout
+            let options = IFlowOptions::new().with_timeout(timeout_secs);
             let mut client = IFlowClient::new(Some(options));
             client.connect().await?;
 
