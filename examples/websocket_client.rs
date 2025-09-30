@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         // Send a message
-        let prompt = "Explain how WebSocket communication works in this SDK";
+        let prompt = "生成一个 HTML 文件介绍当前项目";
         println!("📤 Sending: {}", prompt);
         client.send_message(prompt, None).await?;
 

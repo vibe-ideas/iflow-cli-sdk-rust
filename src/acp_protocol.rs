@@ -487,6 +487,10 @@ impl ACPProtocol {
                     }
                 }
             }
+            "session/request_permission" => {
+                // Handle permission request from CLI
+                self.handle_permission_request(params, request_id).await?;
+            }
             _ => {
                 tracing::warn!("Unknown method: {}", method);
                 // Send error response for unknown methods
@@ -504,6 +508,74 @@ impl ACPProtocol {
             }
         }
 
+        Ok(())
+    }
+
+    /// Handle permission request from the CLI
+    ///
+    /// # Arguments
+    /// * `params` - The parameters of the permission request
+    /// * `request_id` - Optional request ID for responses
+    ///
+    /// # Returns
+    /// * `Ok(())` if handling was successful
+    /// * `Err(IFlowError)` if handling failed
+    async fn handle_permission_request(&mut self, params: Value, request_id: Option<u64>) -> Result<()> {
+        // Extract tool call information from params
+        let tool_call = params.get("toolCall").unwrap_or(&Value::Null);
+        let options = params.get("options").unwrap_or(&Value::Null);
+        let _session_id = params.get("sessionId").and_then(|v| v.as_str());
+        
+        // Log the tool call information
+        let tool_title = tool_call.get("title").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let tool_type = tool_call.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+        
+        tracing::info!("Permission request for tool '{}' (type: {})", tool_title, tool_type);
+        
+        // For now, we'll auto-approve all permission requests
+        // In a more sophisticated implementation, we could check the tool type
+        // and apply different permission policies (similar to Python's PermissionMode)
+        
+        // Find the appropriate option from the provided options
+        let mut selected_option = "proceed_once".to_string();
+        if let Some(options_array) = options.as_array() {
+            for option in options_array {
+                if let Some(option_id) = option.get("optionId").and_then(|v| v.as_str()) {
+                    if option_id == "proceed_once" {
+                        selected_option = option_id.to_string();
+                        break;
+                    } else if option_id == "proceed_always" {
+                        selected_option = option_id.to_string();
+                    }
+                }
+            }
+            
+            // Fallback to first option's optionId if no specific option found
+            if selected_option == "proceed_once" && !options_array.is_empty() {
+                if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
+                    selected_option = first_option_id.to_string();
+                }
+            }
+        }
+        
+        let response = json!({
+            "outcome": {
+                "outcome": "selected",
+                "optionId": selected_option
+            }
+        });
+
+        // Send response if request ID is provided
+        if let Some(id) = request_id {
+            let response_message = json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": response
+            });
+            self.transport.send(&response_message).await?;
+        }
+
+        tracing::info!("Auto-approved permission request for tool '{}': {}", tool_title, selected_option);
         Ok(())
     }
 
