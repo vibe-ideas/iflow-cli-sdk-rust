@@ -19,6 +19,26 @@ pub use agent_client_protocol::{
 /// Protocol version
 pub const PROTOCOL_VERSION: u32 = 1;
 
+/// Permission mode for tool calls
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PermissionMode {
+    /// Automatically approve all tool calls
+    #[serde(rename = "auto")]
+    Auto,
+    /// Require manual confirmation for all tool calls
+    #[serde(rename = "manual")]
+    Manual,
+    /// Auto-approve certain types of tool calls
+    #[serde(rename = "selective")]
+    Selective,
+}
+
+impl Default for PermissionMode {
+    fn default() -> Self {
+        PermissionMode::Auto
+    }
+}
+
 /// Configuration options for iFlow SDK
 ///
 /// This struct contains all the configuration options for the iFlow SDK,
@@ -51,6 +71,10 @@ pub struct IFlowOptions {
     pub auth_method_id: Option<String>,
     /// Logger configuration
     pub log_config: LoggerConfig,
+    /// WebSocket URL for WebSocket connection (if None, use stdio)
+    pub websocket_url: Option<String>,
+    /// Permission mode for tool calls
+    pub permission_mode: PermissionMode,
 }
 
 impl Default for IFlowOptions {
@@ -69,6 +93,8 @@ impl Default for IFlowOptions {
             process_start_port: 8090,
             auth_method_id: None,
             log_config: LoggerConfig::default(),
+            websocket_url: None,
+            permission_mode: PermissionMode::Auto,
         }
     }
 }
@@ -147,6 +173,24 @@ impl IFlowOptions {
     /// * `size` - Maximum log file size in bytes
     pub fn with_max_log_size(mut self, size: u64) -> Self {
         self.log_config.max_file_size = size;
+        self
+    }
+
+    /// Set WebSocket URL for WebSocket connection
+    ///
+    /// # Arguments
+    /// * `url` - The WebSocket URL to connect to
+    pub fn with_websocket_url<S: Into<String>>(mut self, url: S) -> Self {
+        self.websocket_url = Some(url.into());
+        self
+    }
+
+    /// Set permission mode for tool calls
+    ///
+    /// # Arguments
+    /// * `mode` - The permission mode to use
+    pub fn with_permission_mode(mut self, mode: PermissionMode) -> Self {
+        self.permission_mode = mode;
         self
     }
 }

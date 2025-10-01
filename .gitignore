@@ -1,1 +1,4 @@
-/target
+target
+*.log
+*.html
+*.txt

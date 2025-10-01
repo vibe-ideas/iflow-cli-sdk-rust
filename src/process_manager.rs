@@ -15,50 +15,169 @@ use tokio::time::sleep;
 /// providing access to its stdio streams for communication.
 pub struct IFlowProcessManager {
     pub process: Option<Child>, // Made public for access in Drop
+    start_port: u16,
+    port: Option<u16>,
 }
 
 impl IFlowProcessManager {
     /// Create a new process manager
     ///
     /// # Arguments
-    /// * `_start_port` - The port to start the process on (deprecated, no longer used)
+    /// * `start_port` - The port to start the process on
     ///
     /// # Returns
     /// A new IFlowProcessManager instance
-    pub fn new(_start_port: u16) -> Self {
-        Self { process: None }
+    pub fn new(start_port: u16) -> Self {
+        Self { 
+            process: None,
+            start_port,
+            port: None,
+        }
     }
 
-    /// Start the iFlow process
-    ///
-    /// Starts the iFlow CLI process with ACP support and stdio communication.
-    ///
-    /// # Returns
-    /// * `Ok("stdio")` if the process was started successfully
-    /// * `Err(IFlowError)` if there was an error starting the process
-    pub async fn start(&mut self) -> Result<String> {
-        tracing::info!("Starting iFlow process with experimental ACP support");
+    /// Check if a port is available for use
+///
+/// # Arguments
+/// * `port` - Port number to check
+///
+/// # Returns
+/// True if the port is available, False otherwise
+fn is_port_available(port: u16) -> bool {
+    use std::net::TcpListener;
+    TcpListener::bind(("localhost", port)).is_ok()
+}
 
-        // Start iFlow process with stdio support
-        let mut cmd = tokio::process::Command::new("iflow");
-        cmd.arg("--experimental-acp");
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
-        cmd.stdin(Stdio::piped());
+/// Check if a port is listening (has a server running)
+///
+/// # Arguments
+/// * `port` - Port number to check
+///
+/// # Returns
+/// True if the port is listening, False otherwise
+fn is_port_listening(port: u16) -> bool {
+    use std::net::TcpStream;
+    use std::time::Duration;
+    TcpStream::connect_timeout(
+        &format!("127.0.0.1:{}", port).parse().unwrap(),
+        Duration::from_millis(100)
+    ).is_ok()
+}
 
-        let child = cmd
-            .spawn()
-            .map_err(|e| IFlowError::ProcessManager(format!("Failed to start iflow: {}", e)))?;
+/// Find an available port starting from the given port
+///
+/// # Arguments
+/// * `start_port` - Port to start searching from
+/// * `max_attempts` - Maximum number of ports to try
+///
+/// # Returns
+/// An available port number
+///
+/// # Errors
+/// Returns an error if no available port is found
+fn find_available_port(start_port: u16, max_attempts: u16) -> Result<u16> {
+    for i in 0..max_attempts {
+        let port = start_port + i;
+        if Self::is_port_available(port) {
+            tracing::debug!("Found available port: {}", port);
+            return Ok(port);
+        }
+    }
+    
+    Err(IFlowError::ProcessManager(format!(
+        "No available port found in range {}-{}",
+        start_port,
+        start_port + max_attempts
+    )))
+}
 
-        self.process = Some(child);
+/// Start the iFlow process
+///
+/// Starts the iFlow CLI process with ACP support and WebSocket communication.
+///
+/// # Returns
+/// * `Ok(String)` containing the WebSocket URL if the process was started successfully
+/// * `Err(IFlowError)` if there was an error starting the process
+pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
+        if use_websocket {
+            tracing::info!("Starting iFlow process with experimental ACP and WebSocket support");
 
-        // Wait for process to start
-        sleep(Duration::from_secs(2)).await;
+            // Find an available port
+            let port = Self::find_available_port(self.start_port, 100)?;
+            self.port = Some(port);
 
-        tracing::info!("iFlow process started with stdio support");
+            // Start iFlow process with WebSocket support
+            let mut cmd = tokio::process::Command::new("iflow");
+            cmd.arg("--experimental-acp");
+            cmd.arg("--port");
+            cmd.arg(port.to_string());
+            // In WebSocket mode, set stdout/stderr to inherit to avoid blocking/exit when pipes are not consumed
+            cmd.stdout(Stdio::inherit());
+            cmd.stderr(Stdio::inherit());
+            cmd.stdin(Stdio::null()); // No stdin needed for WebSocket
 
-        // For stdio connection, we don't need a URL
-        Ok("stdio".to_string())
+            let child = cmd
+                .spawn()
+                .map_err(|e| IFlowError::ProcessManager(format!("Failed to start iflow: {}", e)))?;
+
+            self.process = Some(child);
+
+            // Wait longer for process to start and WebSocket server to be ready
+            tracing::info!("Waiting for iFlow process to start...");
+            sleep(Duration::from_secs(8)).await;
+            
+            // Verify the port is actually listening with more retries and longer timeout
+            let mut attempts = 0;
+            let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
+            
+            while attempts < max_attempts {
+                if Self::is_port_listening(port) {
+                    tracing::info!("iFlow WebSocket server is ready on port {}", port);
+                    break;
+                }
+                
+                attempts += 1;
+                if attempts % 5 == 0 {
+                    tracing::info!("Still waiting for iFlow to be ready... (attempt {}/{})", attempts, max_attempts);
+                }
+                
+                sleep(Duration::from_secs(1)).await;
+            }
+            
+            if attempts >= max_attempts {
+                return Err(IFlowError::ProcessManager(format!(
+                    "iFlow process failed to start WebSocket server on port {} after {} seconds", 
+                    port, max_attempts
+                )));
+            }
+
+            tracing::info!("iFlow process started with WebSocket support on port {}", port);
+
+            // Return the WebSocket URL with peer parameter
+            Ok(Some(format!("ws://localhost:{}/acp?peer=iflow", port)))
+        } else {
+            tracing::info!("Starting iFlow process with experimental ACP and stdio support");
+
+            // Start iFlow process with stdio support
+            let mut cmd = tokio::process::Command::new("iflow");
+            cmd.arg("--experimental-acp");
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+            cmd.stdin(Stdio::piped()); // stdin needed for stdio
+
+            let child = cmd
+                .spawn()
+                .map_err(|e| IFlowError::ProcessManager(format!("Failed to start iflow: {}", e)))?;
+
+            self.process = Some(child);
+
+            // Wait for process to start
+            sleep(Duration::from_secs(5)).await;
+
+            tracing::info!("iFlow process started with stdio support");
+
+            // No WebSocket URL for stdio
+            Ok(None)
+        }
     }
 
     /// Stop the iFlow process
@@ -75,10 +194,21 @@ impl IFlowProcessManager {
             // Try graceful shutdown first
             let _ = process.kill().await;
             let _ = process.wait().await;
+            
+            // Add a small delay to ensure all resources are released
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
             tracing::info!("iFlow process stopped");
         }
         Ok(())
+    }
+
+    /// Get the port the iFlow process is running on
+    ///
+    /// # Returns
+    /// The port number, or None if not running
+    pub fn port(&self) -> Option<u16> {
+        self.port
     }
 
     /// Check if the iFlow process is running

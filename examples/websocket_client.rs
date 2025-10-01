@@ -1,4 +1,4 @@
-//! Basic client example showing bidirectional communication with iFlow
+//! WebSocket client example showing bidirectional communication with iFlow
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
@@ -9,22 +9,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt().with_env_filter("info").init();
 
-    println!("🚀 Starting iFlow client example...");
+    println!("🚀 Starting iFlow WebSocket client example...");
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
     local.run_until(async {
-        // Configure client options
+        // Configure client options with WebSocket URL and custom timeout
+        let custom_timeout_secs = 120.0;
         let options = IFlowOptions::new()
-            .with_auto_start_process(true)
-            .with_log_file("logs/iflow_client.log");
+            .with_websocket_url("ws://localhost:8090/acp?peer=iflow")
+            .with_timeout(custom_timeout_secs)
+            .with_auto_start_process(true); // Auto-start when using WebSocket
 
         // Create and connect client
         let mut client = IFlowClient::new(Some(options));
 
-        println!("🔗 Connecting to iFlow...");
+        println!("🔗 Connecting to iFlow via WebSocket...");
         client.connect().await?;
-        println!("✅ Connected to iFlow");
+        println!("✅ Connected to iFlow via WebSocket");
 
         // Receive and process responses
         println!("📥 Receiving responses...");
@@ -63,15 +65,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         // Send a message
-        let prompt = "say hello, how are you?";
+        let prompt = "Create a plan to introduce this project.";
         println!("📤 Sending: {}", prompt);
         client.send_message(prompt, None).await?;
 
-        // Wait for the message handling task to finish
-        match message_task.await {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => return Err(err),
-            Err(err) => return Err(Box::new(err)),
+        // Wait for the message handling task to finish with a timeout
+        match tokio::time::timeout(std::time::Duration::from_secs_f64(custom_timeout_secs), message_task).await {
+            Ok(Ok(Ok(()))) => {
+                println!("✅ Message handling completed successfully");
+            }
+            Ok(Ok(Err(err))) => {
+                eprintln!("❌ Error in message handling: {}", err);
+                return Err(err);
+            }
+            Ok(Err(err)) => {
+                eprintln!("❌ Message task panicked: {}", err);
+                return Err(Box::new(err));
+            }
+            Err(_) => {
+                println!("⏰ Timeout waiting for message handling to complete");
+            }
         }
 
         // Disconnect

@@ -62,3 +62,11 @@ path = "examples/query.rs"
 [[example]]
 name = "logging_example"
 path = "examples/logging_example.rs"
+
+[[example]]
+name = "websocket_client"
+path = "examples/websocket_client.rs"
+
+[[example]]
+name = "permission_modes"
+path = "examples/permission_modes.rs"

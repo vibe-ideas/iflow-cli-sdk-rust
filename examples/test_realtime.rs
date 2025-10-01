@@ -33,34 +33,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut message_stream = client.messages();
             let mut message_count = 0;
 
-            while let Some(message) = message_stream.next().await {
-                message_count += 1;
-                let elapsed = start_time.elapsed().as_secs_f32();
+            // Add timeout for the entire message receiving process
+            let mut finished = false;
+            while !finished {
+                // Use timeout for each message
+                match tokio::time::timeout(std::time::Duration::from_secs(30), message_stream.next()).await {
+                    Ok(Some(message)) => {
+                        message_count += 1;
+                        let elapsed = start_time.elapsed().as_secs_f32();
 
-                match message {
-                    Message::Assistant { content } => {
-                        println!("[{:.2}s] 💬 Assistant: {}", elapsed, content);
-                        std::io::stdout().flush()?;
+                        match message {
+                            Message::Assistant { content } => {
+                                println!("[{:.2}s] 💬 Assistant: {}", elapsed, content);
+                                std::io::stdout().flush()?;
+                            }
+                            Message::ToolCall { id, name, status } => {
+                                println!(
+                                    "[{:.2}s] 🔧 ToolCall: {} ({}): {}",
+                                    elapsed, id, name, status
+                                );
+                            }
+                            Message::Plan { entries } => {
+                                println!("[{:.2}s] 📋 Plan: {:?}", elapsed, entries);
+                            }
+                            Message::TaskFinish { reason } => {
+                                println!("[{:.2}s] ✅ TaskFinish: {:?}", elapsed, reason);
+                                finished = true;
+                            }
+                            Message::Error { code, message: msg } => {
+                                println!("[{:.2}s] ❌ Error {}: {}", elapsed, code, msg);
+                                finished = true;
+                            }
+                            Message::User { content } => {
+                                println!("[{:.2}s] 👤 User: {}", elapsed, content);
+                            }
+                        }
                     }
-                    Message::ToolCall { id, name, status } => {
-                        println!(
-                            "[{:.2}s] 🔧 ToolCall: {} ({}): {}",
-                            elapsed, id, name, status
-                        );
+                    Ok(None) => {
+                        // Stream ended
+                        finished = true;
                     }
-                    Message::Plan { entries } => {
-                        println!("[{:.2}s] 📋 Plan: {:?}", elapsed, entries);
-                    }
-                    Message::TaskFinish { reason } => {
-                        println!("[{:.2}s] ✅ TaskFinish: {:?}", elapsed, reason);
-                        break;
-                    }
-                    Message::Error { code, message: msg } => {
-                        println!("[{:.2}s] ❌ Error {}: {}", elapsed, code, msg);
-                        break;
-                    }
-                    Message::User { content } => {
-                        println!("[{:.2}s] 👤 User: {}", elapsed, content);
+                    Err(_) => {
+                        // Timeout
+                        println!("⏰ Timeout waiting for next message");
+                        finished = true;
                     }
                 }
             }

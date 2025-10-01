@@ -1,6 +1,6 @@
 //! Simple query example using the convenience function
 
-use iflow_cli_sdk_rust::query;
+use iflow_cli_sdk_rust::query_with_timeout;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,11 +9,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("🚀 Starting simple query example...");
 
-    // Simple query
+    // Simple query with custom timeout
     let prompt = "What is the capital of France? Please provide a brief answer.";
     println!("❓ Query: {}", prompt);
 
-    match query(prompt).await {
+    match query_with_timeout(prompt, 10.0).await {
         Ok(response) => {
             println!("💡 Answer: {}", response);
         }

@@ -5,7 +5,8 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 ## Features
 
 - 🚀 **Automatic Process Management** - SDK automatically starts and manages iFlow process
-- 🔌 **Stdio Communication** - Communicate with iFlow via stdio for better performance and reliability
+- 🔌 **Stdio Communication** - Communicate with iFlow via stdio
+- 🔌 **WebSocket Communication** - Communicate with iFlow via WebSocket for better performance and reliability
 - 🔄 **Bidirectional Communication** - Real-time streaming messages and responses
 - 🛠️ **Tool Call Management** - Fine-grained permission control for tool execution
 - 📋 **Task Planning** - Receive and process structured task plans
@@ -14,7 +15,6 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 
 ## TODO
 
-- [ ] Add support for WebSocket communication
 - [ ] 🤖 **Sub-agent Support** - Track and manage multiple AI agents via `agent_id`
 
 ## Installation
@@ -186,6 +186,9 @@ cargo build
 
 ```bash
 cargo test
+
+# e2e tests
+cargo test --test e2e_tests -- --nocapture
 ```
 
 ### Running with logging
