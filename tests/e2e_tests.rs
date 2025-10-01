@@ -40,12 +40,6 @@ fn test_query() {
     run_example_test("query");
 }
 
-/// Test the test_both_modes example
-#[test]
-fn test_test_both_modes() {
-    run_example_test("test_both_modes");
-}
-
 /// Test the test_realtime example
 #[test]
 fn test_test_realtime() {

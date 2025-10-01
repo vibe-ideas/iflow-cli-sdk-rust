@@ -34,6 +34,8 @@ pub struct ACPProtocol {
     protocol_version: u32,
     /// Permission mode for tool calls
     permission_mode: PermissionMode,
+    /// Configurable timeout in seconds
+    timeout_secs: f64,
 }
 
 impl ACPProtocol {
@@ -42,7 +44,8 @@ impl ACPProtocol {
     /// # Arguments
     /// * `transport` - WebSocket transport for communication
     /// * `message_sender` - Sender for messages to be processed by the client
-    pub fn new(transport: WebSocketTransport, message_sender: UnboundedSender<Message>) -> Self {
+    /// * `timeout_secs` - Timeout in seconds for protocol operations
+    pub fn new(transport: WebSocketTransport, message_sender: UnboundedSender<Message>, timeout_secs: f64) -> Self {
         Self {
             transport,
             initialized: false,
@@ -51,6 +54,7 @@ impl ACPProtocol {
             message_sender,
             protocol_version: 1,
             permission_mode: PermissionMode::Auto,
+            timeout_secs,
         }
     }
 
@@ -110,7 +114,7 @@ impl ACPProtocol {
 
         // Wait for //ready signal with timeout and better error handling
         info!("Waiting for //ready signal...");
-        let ready_timeout = Duration::from_secs(60); // Increased timeout
+        let ready_timeout = Duration::from_secs_f64(self.timeout_secs);
         let start_time = std::time::Instant::now();
         
         loop {
@@ -118,7 +122,7 @@ impl ACPProtocol {
                 return Err(IFlowError::Timeout("Timeout waiting for //ready signal".to_string()));
             }
 
-            let msg = match timeout(Duration::from_secs(10), self.transport.receive()).await {
+            let msg = match timeout(Duration::from_secs_f64(self.timeout_secs.min(10.0)), self.transport.receive()).await {
                 Ok(Ok(msg)) => msg,
                 Ok(Err(e)) => {
                     tracing::error!("Transport error while waiting for //ready: {}", e);
@@ -127,7 +131,7 @@ impl ACPProtocol {
                     continue;
                 }
                 Err(_) => {
-                    tracing::debug!("No message received in 10s, continuing to wait for //ready...");
+                    tracing::debug!("No message received, continuing to wait for //ready...");
                     continue;
                 }
             };
@@ -196,7 +200,7 @@ impl ACPProtocol {
         }
 
         // Wait for initialize response with timeout
-        let response_timeout = Duration::from_secs(30);
+        let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for initialize response".to_string()))?
@@ -254,7 +258,7 @@ impl ACPProtocol {
         info!("Sent authenticate request with method: {}", method_id);
 
         // Wait for authentication response with timeout
-        let response_timeout = Duration::from_secs(10);
+        let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for authentication response".to_string()))?
@@ -317,7 +321,7 @@ impl ACPProtocol {
         info!("Sent session/new request with cwd: {}", cwd);
 
         // Wait for response with timeout
-        let response_timeout = Duration::from_secs(10);
+        let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for session creation response".to_string()))?
@@ -379,7 +383,7 @@ impl ACPProtocol {
         info!("Sent session/prompt");
 
         // Wait for response
-        let response_timeout = Duration::from_secs(30);
+        let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for prompt response".to_string()))?
@@ -408,7 +412,7 @@ impl ACPProtocol {
     /// * `Ok(Value)` containing the response
     /// * `Err(IFlowError)` if waiting failed
     async fn wait_for_response(&mut self, request_id: u32) -> Result<Value> {
-        let timeout_duration = Duration::from_secs(30);
+        let timeout_duration = Duration::from_secs_f64(self.timeout_secs);
         let start_time = std::time::Instant::now();
 
         loop {
@@ -416,14 +420,14 @@ impl ACPProtocol {
                 return Err(IFlowError::Timeout(format!("Timeout waiting for response to request {}", request_id)));
             }
 
-            let msg = match timeout(Duration::from_secs(5), self.transport.receive()).await {
+            let msg = match timeout(Duration::from_secs_f64(self.timeout_secs.min(5.0)), self.transport.receive()).await {
                 Ok(Ok(msg)) => msg,
                 Ok(Err(e)) => {
                     tracing::error!("Transport error while waiting for response: {}", e);
                     return Err(e);
                 }
                 Err(_) => {
-                    tracing::debug!("No message received in 5s, continuing to wait for response to request {}...", request_id);
+                    tracing::debug!("No message received, continuing to wait for response to request {}...", request_id);
                     continue;
                 }
             };

@@ -14,9 +14,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
     local.run_until(async {
-        // Configure client options with WebSocket URL
+        // Configure client options with WebSocket URL and custom timeout
+        let custom_timeout_secs = 120.0;
         let options = IFlowOptions::new()
             .with_websocket_url("ws://localhost:8090/acp?peer=iflow")
+            .with_timeout(custom_timeout_secs)
             .with_auto_start_process(true); // Auto-start when using WebSocket
 
         // Create and connect client
@@ -68,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client.send_message(prompt, None).await?;
 
         // Wait for the message handling task to finish with a timeout
-        match tokio::time::timeout(std::time::Duration::from_secs(120), message_task).await {
+        match tokio::time::timeout(std::time::Duration::from_secs_f64(custom_timeout_secs), message_task).await {
             Ok(Ok(Ok(()))) => {
                 println!("✅ Message handling completed successfully");
             }

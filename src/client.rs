@@ -381,7 +381,7 @@ impl IFlowClient {
             info!("iFlow auto-start enabled, checking if iFlow is already running...");
             
             // Try to connect first to see if iFlow is already running
-            let mut test_transport = WebSocketTransport::new(websocket_url.clone(), 2.0);
+            let mut test_transport = WebSocketTransport::new(websocket_url.clone(), self.options.timeout);
             if test_transport.connect().await.is_err() {
                 // iFlow not running, start it
                 info!("iFlow not running, starting process...");
@@ -403,7 +403,7 @@ impl IFlowClient {
         };
 
         // Create WebSocket transport with increased timeout
-        let mut transport = WebSocketTransport::new(final_url.clone(), 30.0);
+        let mut transport = WebSocketTransport::new(final_url.clone(), self.options.timeout);
 
         // Connect to WebSocket with retry logic
         let mut connect_attempts = 0;
@@ -435,7 +435,7 @@ impl IFlowClient {
         }
 
         // Create ACP protocol handler
-        let mut acp_protocol = ACPProtocol::new(transport, self.message_sender.clone());
+        let mut acp_protocol = ACPProtocol::new(transport, self.message_sender.clone(), self.options.timeout);
         acp_protocol.set_permission_mode(self.options.permission_mode);
 
         // Store the connection（新增持有 process_manager）
