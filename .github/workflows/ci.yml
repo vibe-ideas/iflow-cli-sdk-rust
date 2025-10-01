@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ main, websocket ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, websocket ]
 
 env:
   CARGO_TERM_COLOR: always

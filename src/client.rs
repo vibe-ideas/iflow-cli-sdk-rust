@@ -95,7 +95,6 @@ struct IFlowClientHandler {
 }
 
 #[async_trait::async_trait(?Send)]
-#[async_trait::async_trait(?Send)]
 impl Client for IFlowClientHandler {
     async fn request_permission(
         &self,
