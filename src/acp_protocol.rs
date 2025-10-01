@@ -5,7 +5,7 @@
 //! and protocol flow.
 
 use crate::error::{IFlowError, Result};
-use crate::types::{Message, IFlowOptions};
+use crate::types::{Message, IFlowOptions, PermissionMode};
 use crate::websocket_transport::WebSocketTransport;
 // Remove unused imports
 use tokio::sync::mpsc::UnboundedSender;
@@ -32,6 +32,8 @@ pub struct ACPProtocol {
     message_sender: UnboundedSender<Message>,
     /// Protocol version
     protocol_version: u32,
+    /// Permission mode for tool calls
+    permission_mode: PermissionMode,
 }
 
 impl ACPProtocol {
@@ -48,6 +50,7 @@ impl ACPProtocol {
             request_id: 0,
             message_sender,
             protocol_version: 1,
+            permission_mode: PermissionMode::Auto,
         }
     }
 
@@ -65,6 +68,14 @@ impl ACPProtocol {
     /// True if authenticated, False otherwise
     pub fn is_authenticated(&self) -> bool {
         self.authenticated
+    }
+
+    /// Set the permission mode for tool calls
+    ///
+    /// # Arguments
+    /// * `mode` - The permission mode to use
+    pub fn set_permission_mode(&mut self, mode: PermissionMode) {
+        self.permission_mode = mode;
     }
 
     /// Generate next request ID
@@ -532,38 +543,60 @@ impl ACPProtocol {
         
         tracing::info!("Permission request for tool '{}' (type: {})", tool_title, tool_type);
         
-        // For now, we'll auto-approve all permission requests
-        // In a more sophisticated implementation, we could check the tool type
-        // and apply different permission policies (similar to Python's PermissionMode)
+        // Determine response based on permission_mode
+        let auto_approve = match self.permission_mode {
+            PermissionMode::Auto => {
+                // Auto-approve all tool calls
+                true
+            }
+            PermissionMode::Manual => {
+                // Require manual confirmation for all
+                false
+            }
+            PermissionMode::Selective => {
+                // Auto-approve based on tool type
+                // For now, we'll auto-approve read/fetch operations
+                tool_type == "read" || tool_type == "fetch" || tool_type == "list"
+            }
+        };
         
-        // Find the appropriate option from the provided options
-        let mut selected_option = "proceed_once".to_string();
-        if let Some(options_array) = options.as_array() {
-            for option in options_array {
-                if let Some(option_id) = option.get("optionId").and_then(|v| v.as_str()) {
-                    if option_id == "proceed_once" {
-                        selected_option = option_id.to_string();
-                        break;
-                    } else if option_id == "proceed_always" {
-                        selected_option = option_id.to_string();
+        let response = if auto_approve {
+            // Find the appropriate option from the provided options
+            let mut selected_option = "proceed_once".to_string();
+            if let Some(options_array) = options.as_array() {
+                for option in options_array {
+                    if let Some(option_id) = option.get("optionId").and_then(|v| v.as_str()) {
+                        if option_id == "proceed_once" {
+                            selected_option = option_id.to_string();
+                            break;
+                        } else if option_id == "proceed_always" {
+                            selected_option = option_id.to_string();
+                        }
+                    }
+                }
+                
+                // Fallback to first option's optionId if no specific option found
+                if selected_option == "proceed_once" && !options_array.is_empty() {
+                    if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
+                        selected_option = first_option_id.to_string();
                     }
                 }
             }
             
-            // Fallback to first option's optionId if no specific option found
-            if selected_option == "proceed_once" && !options_array.is_empty() {
-                if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
-                    selected_option = first_option_id.to_string();
+            json!({
+                "outcome": {
+                    "outcome": "selected",
+                    "optionId": selected_option
                 }
-            }
-        }
-        
-        let response = json!({
-            "outcome": {
-                "outcome": "selected",
-                "optionId": selected_option
-            }
-        });
+            })
+        } else {
+            // Reject the permission request
+            json!({
+                "outcome": {
+                    "outcome": "cancelled"
+                }
+            })
+        };
 
         // Send response if request ID is provided
         if let Some(id) = request_id {
@@ -575,7 +608,8 @@ impl ACPProtocol {
             self.transport.send(&response_message).await?;
         }
 
-        tracing::info!("Auto-approved permission request for tool '{}': {}", tool_title, selected_option);
+        let outcome = response.get("outcome").and_then(|o| o.get("outcome")).and_then(|o| o.as_str()).unwrap_or("unknown");
+        tracing::info!("Permission request for tool '{}': {}", tool_title, outcome);
         Ok(())
     }
 

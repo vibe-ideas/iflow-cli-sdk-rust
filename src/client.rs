@@ -435,7 +435,8 @@ impl IFlowClient {
         }
 
         // Create ACP protocol handler
-        let acp_protocol = ACPProtocol::new(transport, self.message_sender.clone());
+        let mut acp_protocol = ACPProtocol::new(transport, self.message_sender.clone());
+        acp_protocol.set_permission_mode(self.options.permission_mode);
 
         // Store the connection（新增持有 process_manager）
         self.connection = Some(Connection::WebSocket {
