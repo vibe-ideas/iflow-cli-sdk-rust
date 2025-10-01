@@ -73,7 +73,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
             // Receive messages in a loop with a timeout
             let mut finished = false;
             while !finished {
-                match timeout(Duration::from_secs(timeout_secs as u64), message_stream.next()).await {
+                match timeout(Duration::from_secs_f64(timeout_secs), message_stream.next()).await {
                     Ok(Some(message)) => {
                         match message {
                             Message::Assistant { content } => {
