@@ -20,6 +20,8 @@ A powerful Rust SDK for interacting with iFlow using the Agent Communication Pro
 
 - [ ] 🤖 **Sub-agent Support** - Track and manage multiple AI agents via `agent_id`
 
+[ROADMAP.md](ROADMAP.md)
+
 ## Installation
 
 Add this to your `Cargo.toml`:
