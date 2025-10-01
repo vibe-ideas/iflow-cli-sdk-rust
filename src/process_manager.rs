@@ -194,6 +194,9 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             // Try graceful shutdown first
             let _ = process.kill().await;
             let _ = process.wait().await;
+            
+            // Add a small delay to ensure all resources are released
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
             tracing::info!("iFlow process stopped");
         }

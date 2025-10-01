@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         // Send a message
-        let prompt = "生成一个 HTML 文件介绍当前项目";
+        let prompt = "Create a plan to introduce this project.";
         println!("📤 Sending: {}", prompt);
         client.send_message(prompt, None).await?;
 

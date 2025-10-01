@@ -530,7 +530,7 @@ impl IFlowClient {
         let current_session_id = session_id.as_ref().unwrap();
 
         // Send the prompt and wait for completion
-        let _prompt_response = client
+        let prompt_response = client
             .prompt(agent_client_protocol::PromptRequest {
                 session_id: current_session_id.clone(),
                 prompt: vec![agent_client_protocol::ContentBlock::Text(agent_client_protocol::TextContent {
@@ -542,6 +542,15 @@ impl IFlowClient {
             })
             .await
             .map_err(|e| IFlowError::Connection(format!("Failed to send message: {}", e)))?;
+
+        // Send task finish message with the actual stop reason
+        let message = Message::TaskFinish {
+            reason: Some(format!("{:?}", prompt_response.stop_reason)),
+        };
+
+        self.message_sender
+            .send(message)
+            .map_err(|_| IFlowError::Connection("Message channel closed".to_string()))?;
 
         info!("Sent message to iFlow via stdio: {}", text);
         Ok(())
@@ -667,23 +676,30 @@ impl IFlowClient {
     pub async fn disconnect(&mut self) -> Result<()> {
         *self.connected.lock().await = false;
 
-        match &mut self.connection {
-            Some(Connection::Stdio { process_manager, .. }) => {
-                if let Some(mut pm) = process_manager.take() {
-                    pm.stop().await?;
+        // Take ownership of the connection to ensure proper cleanup
+        if let Some(connection) = self.connection.take() {
+            match connection {
+                Connection::Stdio { acp_client, mut process_manager, session_id: _, initialized: _ } => {
+                    // Drop the ACP client connection to stop background tasks
+                    drop(acp_client);
+                    
+                    // Stop the process if we started it
+                    if let Some(mut pm) = process_manager.take() {
+                        pm.stop().await?;
+                    }
+                    
+                    // Add a small delay to allow background tasks to finish
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+                Connection::WebSocket { mut acp_protocol, mut process_manager, session_id: _ } => {
+                    let _ = acp_protocol.close().await;
+                    // if we started the process, stop it
+                    if let Some(mut pm) = process_manager.take() {
+                        pm.stop().await?;
+                    }
                 }
             }
-            Some(Connection::WebSocket { acp_protocol, process_manager, .. }) => {
-                let _ = acp_protocol.close().await;
-                // 如果是我们自动启动的进程，断开时停止
-                if let Some(mut pm) = process_manager.take() {
-                    pm.stop().await?;
-                }
-            }
-            None => {}
         }
-
-        self.connection = None;
 
         info!("Disconnected from iFlow");
         Ok(())
