@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client.send_message(prompt, None).await?;
 
         // Wait for the message handling task to finish with a timeout
-        match tokio::time::timeout(std::time::Duration::from_secs(30), message_task).await {
+        match tokio::time::timeout(std::time::Duration::from_secs(120), message_task).await {
             Ok(Ok(Ok(()))) => {
                 println!("✅ Message handling completed successfully");
             }
