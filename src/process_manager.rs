@@ -110,7 +110,7 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             cmd.arg("--experimental-acp");
             cmd.arg("--port");
             cmd.arg(port.to_string());
-            // 将 WebSocket 模式的 stdout/stderr 改为 inherit，避免管道未消费导致阻塞/退出
+            // In WebSocket mode, set stdout/stderr to inherit to avoid blocking/exit when pipes are not consumed
             cmd.stdout(Stdio::inherit());
             cmd.stderr(Stdio::inherit());
             cmd.stdin(Stdio::null()); // No stdin needed for WebSocket

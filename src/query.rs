@@ -70,7 +70,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
             let mut response = String::new();
             let mut message_stream = client.messages();
 
-            // 使用带超时的循环接收消息
+            // Receive messages in a loop with a timeout
             let mut finished = false;
             while !finished {
                 match timeout(Duration::from_secs(timeout_secs as u64), message_stream.next()).await {
@@ -86,11 +86,11 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                         }
                     }
                     Ok(None) => {
-                        // 流结束
+                        // Stream ended
                         finished = true;
                     }
                     Err(_) => {
-                        // 超时
+                        // Timeout
                         finished = true;
                     }
                 }

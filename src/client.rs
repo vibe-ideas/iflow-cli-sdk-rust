@@ -71,11 +71,11 @@ impl Stream for MessageStream {
             }
         };
 
-        // 使用异步接收
+        // Use asynchronous receiving
         match receiver.try_recv() {
             Ok(msg) => Poll::Ready(Some(msg)),
             Err(mpsc::error::TryRecvError::Empty) => {
-                // 注册 waker 以便在有新消息时被唤醒
+                // Register a waker to be notified when new messages arrive
                 let recv_future = receiver.recv();
                 pin_mut!(recv_future);
                 match recv_future.poll_unpin(cx) {
@@ -373,7 +373,7 @@ impl IFlowClient {
             .ok_or_else(|| IFlowError::Connection("WebSocket URL not configured".to_string()))?
             .clone();
 
-        // 用于在需要自动启动时保存进程管理器
+        // Keep the process manager when auto-start is needed
         let mut process_manager_to_keep: Option<IFlowProcessManager> = None;
 
         // Check if we need to start iFlow process
@@ -390,7 +390,7 @@ impl IFlowClient {
                     .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
                 info!("Started iFlow process at {}", iflow_url);
 
-                // 保存进程管理器，避免句柄提前 drop 导致子进程因 stdout/stderr 管道问题退出
+                // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
                 process_manager_to_keep = Some(pm);
 
                 iflow_url
@@ -438,7 +438,7 @@ impl IFlowClient {
         let mut acp_protocol = ACPProtocol::new(transport, self.message_sender.clone(), self.options.timeout);
         acp_protocol.set_permission_mode(self.options.permission_mode);
 
-        // Store the connection（新增持有 process_manager）
+        // Store the connection (now also holds process_manager)
         self.connection = Some(Connection::WebSocket {
             acp_protocol,
             session_id: None,
@@ -472,7 +472,7 @@ impl IFlowClient {
         let is_websocket = matches!(self.connection, Some(Connection::WebSocket { .. }));
         
         if is_websocket {
-            // 适配新增的 process_manager 字段
+            // Adapt to the newly added process_manager field
             if let Some(Connection::WebSocket { mut acp_protocol, mut session_id, process_manager }) = self.connection.take() {
                 let pm = process_manager;
                 let result = self.send_message_websocket(&mut acp_protocol, &mut session_id, text).await;
