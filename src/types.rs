@@ -39,6 +39,32 @@ impl Default for PermissionMode {
     }
 }
 
+/// Tool call status
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToolCallStatus {
+    /// The tool call is pending
+    #[serde(rename = "pending")]
+    Pending,
+    /// The tool call is in progress
+    #[serde(rename = "in_progress")]
+    InProgress,
+    /// The tool call has completed successfully
+    #[serde(rename = "completed")]
+    Completed,
+    /// The tool call has failed
+    #[serde(rename = "failed")]
+    Failed,
+    /// Legacy alias for InProgress
+    #[serde(rename = "running")]
+    Running,
+    /// Legacy alias for Completed
+    #[serde(rename = "finished")]
+    Finished,
+    /// Legacy alias for Failed
+    #[serde(rename = "error")]
+    Error,
+}
+
 /// Plan entry priority levels
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PlanPriority {
@@ -256,7 +282,7 @@ pub struct ToolCallMessage {
     /// The icon of the tool call
     pub icon: Icon,
     /// The status of the tool call
-    pub status: String,
+    pub status: ToolCallStatus,
     /// The name of the tool (optional)
     #[serde(rename = "toolName")]
     pub tool_name: Option<String>,
@@ -285,7 +311,7 @@ impl ToolCallMessage {
     ///
     /// # Returns
     /// A new ToolCallMessage instance
-    pub fn new(id: String, label: String, icon: Icon, status: String) -> Self {
+    pub fn new(id: String, label: String, icon: Icon, status: ToolCallStatus) -> Self {
         Self {
             message_type: "tool_call".to_string(),
             id,

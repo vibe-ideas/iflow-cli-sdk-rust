@@ -90,7 +90,7 @@ async fn test_tool_call_message_comprehensive() {
         "12345".to_string(),
         "File Reader".to_string(),
         icon.clone(),
-        "running".to_string(),
+        iflow_cli_sdk_rust::types::ToolCallStatus::Running,
     );
 
     assert_eq!(tool_call.message_type, "tool_call");
@@ -98,7 +98,7 @@ async fn test_tool_call_message_comprehensive() {
     assert_eq!(tool_call.label, "File Reader");
     assert_eq!(tool_call.icon.icon_type, "tool");
     assert_eq!(tool_call.icon.value, "gear");
-    assert_eq!(tool_call.status, "running");
+    assert_eq!(tool_call.status, iflow_cli_sdk_rust::types::ToolCallStatus::Running);
     assert!(tool_call.tool_name.is_none());
     assert!(tool_call.content.is_none());
     assert!(tool_call.locations.is_none());
