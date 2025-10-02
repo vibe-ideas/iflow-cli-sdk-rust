@@ -39,6 +39,53 @@ impl Default for PermissionMode {
     }
 }
 
+/// Plan entry priority levels
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlanPriority {
+    #[serde(rename = "high")]
+    High,
+    #[serde(rename = "medium")]
+    Medium,
+    #[serde(rename = "low")]
+    Low,
+}
+
+impl Default for PlanPriority {
+    fn default() -> Self {
+        PlanPriority::Medium
+    }
+}
+
+/// Plan entry status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlanStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "in_progress")]
+    InProgress,
+    #[serde(rename = "completed")]
+    Completed,
+}
+
+impl Default for PlanStatus {
+    fn default() -> Self {
+        PlanStatus::Pending
+    }
+}
+
+/// Plan entry for task planning
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PlanEntry {
+    /// The content of the plan entry
+    pub content: String,
+    /// The priority of the plan entry
+    #[serde(default)]
+    pub priority: PlanPriority,
+    /// The status of the plan entry
+    #[serde(default)]
+    pub status: PlanStatus,
+}
+
 /// Configuration options for iFlow SDK
 ///
 /// This struct contains all the configuration options for the iFlow SDK,
@@ -220,7 +267,7 @@ pub enum Message {
 
     /// Plan message
     #[serde(rename = "plan")]
-    Plan { entries: Vec<String> },
+    Plan { entries: Vec<PlanEntry> },
 
     /// Task finish message
     #[serde(rename = "task_finish")]

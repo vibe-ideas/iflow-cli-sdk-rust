@@ -1,6 +1,7 @@
 //! Logging example - Record raw iflow messages (Debug format)
 
 use iflow_cli_sdk_rust::{LoggerConfig, Message, MessageLogger};
+use iflow_cli_sdk_rust::types::{PlanEntry, PlanPriority, PlanStatus};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,9 +44,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Plan message
     let plan_msg = Message::Plan {
         entries: vec![
-            "Step 1: Analyze requirements".to_string(),
-            "Step 2: Implement features".to_string(),
-            "Step 3: Test and verify".to_string(),
+            PlanEntry {
+                content: "Step 1: Analyze requirements".to_string(),
+                priority: PlanPriority::Medium,
+                status: PlanStatus::Pending,
+            },
+            PlanEntry {
+                content: "Step 2: Implement features".to_string(),
+                priority: PlanPriority::High,
+                status: PlanStatus::InProgress,
+            },
+            PlanEntry {
+                content: "Step 3: Test and verify".to_string(),
+                priority: PlanPriority::Medium,
+                status: PlanStatus::Pending,
+            },
         ],
     };
     logger.log_message(&plan_msg).await?;

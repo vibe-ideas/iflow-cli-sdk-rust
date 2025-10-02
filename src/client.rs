@@ -221,13 +221,28 @@ impl Client for IFlowClientHandler {
                 }
             }
             SessionUpdate::Plan(plan) => {
-                let msg = Message::Plan {
-                    entries: plan
-                        .entries
-                        .into_iter()
-                        .map(|entry| entry.content)
-                        .collect(),
-                };
+                let entries = plan
+                    .entries
+                    .into_iter()
+                    .map(|entry| {
+                        // Convert agent-client-protocol PlanEntry to our PlanEntry
+                        super::types::PlanEntry {
+                            content: entry.content,
+                            priority: match entry.priority {
+                                agent_client_protocol::PlanEntryPriority::High => super::types::PlanPriority::High,
+                                agent_client_protocol::PlanEntryPriority::Medium => super::types::PlanPriority::Medium,
+                                agent_client_protocol::PlanEntryPriority::Low => super::types::PlanPriority::Low,
+                            },
+                            status: match entry.status {
+                                agent_client_protocol::PlanEntryStatus::Pending => super::types::PlanStatus::Pending,
+                                agent_client_protocol::PlanEntryStatus::InProgress => super::types::PlanStatus::InProgress,
+                                agent_client_protocol::PlanEntryStatus::Completed => super::types::PlanStatus::Completed,
+                            },
+                        }
+                    })
+                    .collect();
+                
+                let msg = Message::Plan { entries };
                 let _ = self.message_sender.send(msg.clone());
                 
                 // Log the message if logger is available
