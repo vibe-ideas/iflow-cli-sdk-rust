@@ -121,9 +121,18 @@ let options = IFlowOptions::new()
     .with_auto_start_process(true);
 ```
 
-### Sandbox Mode
+### WebSocket Communication
 
-The SDK now uses stdio for communication with iFlow, so there's no need for WebSocket URLs. The `for_sandbox` method is no longer applicable.
+The SDK supports WebSocket communication with iFlow for better performance and reliability. To use WebSocket, specify the WebSocket URL in the options:
+
+```rust
+use iflow_cli_sdk_rust::IFlowOptions;
+
+let options = IFlowOptions::new()
+    .with_websocket_url("ws://localhost:8080".to_string());
+```
+
+If you enable auto-start process with a WebSocket URL pointing to localhost, the SDK will automatically start the iFlow process if it's not already running.
 
 ## Message Types
 
