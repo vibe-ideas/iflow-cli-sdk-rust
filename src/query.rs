@@ -57,49 +57,56 @@ pub async fn query(prompt: &str) -> Result<String> {
 /// }
 /// ```
 pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<String> {
-    let local = tokio::task::LocalSet::new();
-    local
-        .run_until(async {
-            // Create client with the specified timeout
-            let options = IFlowOptions::new().with_timeout(timeout_secs);
-            let mut client = IFlowClient::new(Some(options));
-            client.connect().await?;
+    // Apply timeout to the entire operation
+    match timeout(Duration::from_secs_f64(timeout_secs), async {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                // Create client with the specified timeout
+                let options = IFlowOptions::new().with_timeout(timeout_secs);
+                let mut client = IFlowClient::new(Some(options));
+                client.connect().await?;
 
-            client.send_message(prompt, None).await?;
+                client.send_message(prompt, None).await?;
 
-            let mut response = String::new();
-            let mut message_stream = client.messages();
+                let mut response = String::new();
+                let mut message_stream = client.messages();
 
-            // Receive messages in a loop with a timeout
-            let mut finished = false;
-            while !finished {
-                match timeout(Duration::from_secs_f64(timeout_secs), message_stream.next()).await {
-                    Ok(Some(message)) => {
-                        match message {
-                            Message::Assistant { content } => {
-                                response.push_str(&content);
+                // Receive messages in a loop
+                let mut finished = false;
+                while !finished {
+                    // Use a shorter timeout for individual message reception
+                    match timeout(Duration::from_secs_f64(1.0), message_stream.next()).await {
+                        Ok(Some(message)) => {
+                            match message {
+                                Message::Assistant { content } => {
+                                    response.push_str(&content);
+                                }
+                                Message::TaskFinish { .. } => {
+                                    finished = true;
+                                }
+                                _ => {}
                             }
-                            Message::TaskFinish { .. } => {
-                                finished = true;
-                            }
-                            _ => {}
+                        }
+                        Ok(None) => {
+                            // Stream ended
+                            finished = true;
+                        }
+                        Err(_) => {
+                            // Timeout on individual message - this is expected during normal operation
+                            // Continue the loop to check if we should still wait
                         }
                     }
-                    Ok(None) => {
-                        // Stream ended
-                        finished = true;
-                    }
-                    Err(_) => {
-                        // Timeout
-                        finished = true;
-                    }
                 }
-            }
 
-            client.disconnect().await?;
-            Ok(response.trim().to_string())
-        })
-        .await
+                client.disconnect().await?;
+                Ok(response.trim().to_string())
+            })
+            .await
+    }).await {
+        Ok(result) => result,
+        Err(_) => Err(crate::error::IFlowError::Timeout("Operation timed out".to_string()))
+    }
 }
 
 /// Stream responses from iFlow

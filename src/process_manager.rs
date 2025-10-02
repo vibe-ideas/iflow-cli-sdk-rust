@@ -192,8 +192,28 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             tracing::info!("Stopping iFlow process");
 
             // Try graceful shutdown first
-            let _ = process.kill().await;
-            let _ = process.wait().await;
+            match tokio::time::timeout(Duration::from_secs(5), process.kill()).await {
+                Ok(Ok(_)) => {
+                    // Wait for the process to actually exit with a timeout
+                    match tokio::time::timeout(Duration::from_secs(5), process.wait()).await {
+                        Ok(Ok(_)) => tracing::info!("iFlow process stopped gracefully"),
+                        Ok(Err(e)) => tracing::warn!("Error waiting for iFlow process: {}", e),
+                        Err(_) => {
+                            tracing::warn!("Timeout waiting for iFlow process to exit, forcing termination");
+                            // Force kill if it didn't exit in time
+                            let _ = process.start_kill();
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    tracing::warn!("Failed to kill iFlow process: {}, forcing termination", e);
+                    let _ = process.start_kill();
+                }
+                Err(_) => {
+                    tracing::warn!("Timeout killing iFlow process, forcing termination");
+                    let _ = process.start_kill();
+                }
+            }
             
             // Add a small delay to ensure all resources are released
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;

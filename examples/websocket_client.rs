@@ -76,11 +76,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Ok(Ok(Err(err))) => {
                 eprintln!("❌ Error in message handling: {}", err);
-                return Err(err);
             }
             Ok(Err(err)) => {
                 eprintln!("❌ Message task panicked: {}", err);
-                return Err(Box::new(err));
             }
             Err(_) => {
                 println!("⏰ Timeout waiting for message handling to complete");
