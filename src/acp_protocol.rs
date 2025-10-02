@@ -675,9 +675,32 @@ impl ACPProtocol {
             }
             "plan" => {
                 if let Some(entries) = update.get("entries").and_then(|v| v.as_array()) {
-                    let entries: Vec<String> = entries.iter()
-                        .filter_map(|entry| entry.get("content").and_then(|v| v.as_str()))
-                        .map(|s| s.to_string())
+                    let entries: Vec<super::types::PlanEntry> = entries.iter()
+                        .filter_map(|entry| {
+                            let content = entry.get("content").and_then(|v| v.as_str())?.to_string();
+                            let priority_str = entry.get("priority").and_then(|v| v.as_str()).unwrap_or("medium");
+                            let status_str = entry.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
+                            
+                            let priority = match priority_str {
+                                "high" => super::types::PlanPriority::High,
+                                "medium" => super::types::PlanPriority::Medium,
+                                "low" => super::types::PlanPriority::Low,
+                                _ => super::types::PlanPriority::Medium,
+                            };
+                            
+                            let status = match status_str {
+                                "pending" => super::types::PlanStatus::Pending,
+                                "in_progress" => super::types::PlanStatus::InProgress,
+                                "completed" => super::types::PlanStatus::Completed,
+                                _ => super::types::PlanStatus::Pending,
+                            };
+                            
+                            Some(super::types::PlanEntry {
+                                content,
+                                priority,
+                                status,
+                            })
+                        })
                         .collect();
                     
                     let msg = Message::Plan { entries };
