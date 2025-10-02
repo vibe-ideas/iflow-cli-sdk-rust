@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 );
                                 finished = true;
                             }
-                            Message::Error { code, message: msg } => {
+                            Message::Error { code, message: msg, details: _ } => {
                                 println!("[{:.2}s] ❌ Error {}: {}", elapsed.as_secs_f32(), code, msg);
                                 finished = true;
                             }

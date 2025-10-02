@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 println!("[{:.2}s] ✅ TaskFinish: {:?}", elapsed, reason);
                                 finished = true;
                             }
-                            Message::Error { code, message: msg } => {
+                            Message::Error { code, message: msg, details: _ } => {
                                 println!("[{:.2}s] ❌ Error {}: {}", elapsed, code, msg);
                                 finished = true;
                             }

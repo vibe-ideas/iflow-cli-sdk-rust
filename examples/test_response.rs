@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("🏁 Task finished: {:?}", reason);
                             break;
                         }
-                        Message::Error { code, message } => {
+                        Message::Error { code, message, details: _ } => {
                             println!("❌ Error {}: {}", code, message);
                             break;
                         }

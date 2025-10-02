@@ -86,6 +86,222 @@ pub struct PlanEntry {
     pub status: PlanStatus,
 }
 
+/// User message chunk
+///
+/// A chunk of a user message, which can be either text or a file path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UserMessageChunk {
+    /// Text content
+    Text {
+        #[serde(rename = "text")]
+        content: String,
+    },
+    /// File path content
+    Path {
+        #[serde(rename = "path")]
+        path: PathBuf,
+    },
+}
+
+/// User message
+///
+/// A user message consisting of one or more chunks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserMessage {
+    /// The type of the message (always "user")
+    #[serde(rename = "type")]
+    pub message_type: String,
+    /// The chunks of the message
+    pub chunks: Vec<UserMessageChunk>,
+}
+
+impl UserMessage {
+    /// Create a new user message with text content
+    ///
+    /// # Arguments
+    /// * `text` - The text content of the message
+    ///
+    /// # Returns
+    /// A new UserMessage instance
+    pub fn new_text(text: String) -> Self {
+        Self {
+            message_type: "user".to_string(),
+            chunks: vec![UserMessageChunk::Text { content: text }],
+        }
+    }
+
+    /// Create a new user message with a file path
+    ///
+    /// # Arguments
+    /// * `path` - The path to the file
+    ///
+    /// # Returns
+    /// A new UserMessage instance
+    pub fn new_path(path: PathBuf) -> Self {
+        Self {
+            message_type: "user".to_string(),
+            chunks: vec![UserMessageChunk::Path { path }],
+        }
+    }
+
+    /// Create a new user message with multiple chunks
+    ///
+    /// # Arguments
+    /// * `chunks` - The chunks of the message
+    ///
+    /// # Returns
+    /// A new UserMessage instance
+    pub fn new(chunks: Vec<UserMessageChunk>) -> Self {
+        Self {
+            message_type: "user".to_string(),
+            chunks,
+        }
+    }
+}
+
+/// Icon for tool calls
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Icon {
+    /// The type of the icon
+    #[serde(rename = "type")]
+    pub icon_type: String,
+    /// The value of the icon
+    pub value: String,
+}
+
+/// Tool call confirmation details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallConfirmation {
+    /// The type of the confirmation
+    #[serde(rename = "type")]
+    pub confirmation_type: String,
+    /// Optional description
+    pub description: Option<String>,
+    /// Command for execute type
+    pub command: Option<String>,
+    /// Root command for execute type
+    #[serde(rename = "rootCommand")]
+    pub root_command: Option<String>,
+    /// Server name for mcp type
+    #[serde(rename = "serverName")]
+    pub server_name: Option<String>,
+    /// Tool name for mcp type
+    #[serde(rename = "toolName")]
+    pub tool_name: Option<String>,
+    /// Tool display name for mcp type
+    #[serde(rename = "toolDisplayName")]
+    pub tool_display_name: Option<String>,
+    /// URLs for fetch type
+    pub urls: Option<Vec<String>>,
+}
+
+/// Tool call content
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallContent {
+    /// The type of the content
+    #[serde(rename = "type")]
+    pub content_type: String,
+    /// Markdown content for markdown type
+    pub markdown: Option<String>,
+    /// Path for diff type
+    pub path: Option<String>,
+    /// Old text for diff type
+    #[serde(rename = "oldText")]
+    pub old_text: Option<String>,
+    /// New text for diff type
+    #[serde(rename = "newText")]
+    pub new_text: Option<String>,
+}
+
+/// File location for a tool call
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallLocation {
+    /// The path of the file
+    pub path: String,
+    /// The start line (optional)
+    #[serde(rename = "lineStart")]
+    pub line_start: Option<u32>,
+    /// The end line (optional)
+    #[serde(rename = "lineEnd")]
+    pub line_end: Option<u32>,
+}
+
+/// Agent information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInfo {
+    /// Raw agentId from iFlow ACP
+    #[serde(rename = "agentId")]
+    pub agent_id: String,
+    /// Agent index within task
+    #[serde(rename = "agentIndex")]
+    pub agent_index: Option<u32>,
+    /// Task/call ID from agentId
+    #[serde(rename = "taskId")]
+    pub task_id: Option<String>,
+    /// Creation/event timestamp
+    pub timestamp: Option<u64>,
+}
+
+/// Tool call message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallMessage {
+    /// The type of the message (always "tool_call")
+    #[serde(rename = "type")]
+    pub message_type: String,
+    /// The ID of the tool call
+    pub id: String,
+    /// The label of the tool call
+    pub label: String,
+    /// The icon of the tool call
+    pub icon: Icon,
+    /// The status of the tool call
+    pub status: String,
+    /// The name of the tool (optional)
+    #[serde(rename = "toolName")]
+    pub tool_name: Option<String>,
+    /// The content of the tool call (optional)
+    pub content: Option<ToolCallContent>,
+    /// The locations of the tool call (optional)
+    pub locations: Option<Vec<ToolCallLocation>>,
+    /// The confirmation details of the tool call (optional)
+    pub confirmation: Option<ToolCallConfirmation>,
+    /// The agent ID (optional)
+    #[serde(rename = "agentId")]
+    pub agent_id: Option<String>,
+    /// The agent information (optional)
+    #[serde(rename = "agentInfo")]
+    pub agent_info: Option<AgentInfo>,
+}
+
+impl ToolCallMessage {
+    /// Create a new tool call message
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the tool call
+    /// * `label` - The label of the tool call
+    /// * `icon` - The icon of the tool call
+    /// * `status` - The status of the tool call
+    ///
+    /// # Returns
+    /// A new ToolCallMessage instance
+    pub fn new(id: String, label: String, icon: Icon, status: String) -> Self {
+        Self {
+            message_type: "tool_call".to_string(),
+            id,
+            label,
+            icon,
+            status,
+            tool_name: None,
+            content: None,
+            locations: None,
+            confirmation: None,
+            agent_id: None,
+            agent_info: None,
+        }
+    }
+}
+
 /// Configuration options for iFlow SDK
 ///
 /// This struct contains all the configuration options for the iFlow SDK,
@@ -242,6 +458,53 @@ impl IFlowOptions {
     }
 }
 
+/// Error message details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorMessageDetails {
+    /// Error code
+    pub code: i32,
+    /// Error message
+    pub message: String,
+    /// Optional error details
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+impl ErrorMessageDetails {
+    /// Create a new error message details
+    ///
+    /// # Arguments
+    /// * `code` - The error code
+    /// * `message` - The error message
+    ///
+    /// # Returns
+    /// A new ErrorMessageDetails instance
+    pub fn new(code: i32, message: String) -> Self {
+        Self {
+            code,
+            message,
+            details: None,
+        }
+    }
+
+    /// Create a new error message details with details
+    ///
+    /// # Arguments
+    /// * `code` - The error code
+    /// * `message` - The error message
+    /// * `details` - Additional error details
+    ///
+    /// # Returns
+    /// A new ErrorMessageDetails instance
+    pub fn with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+        Self {
+            code,
+            message,
+            details: Some(details),
+        }
+    }
+}
+
 /// Message types for communication with iFlow
 ///
 /// These are the various message types that can be exchanged with iFlow
@@ -275,7 +538,12 @@ pub enum Message {
 
     /// Error message
     #[serde(rename = "error")]
-    Error { code: i32, message: String },
+    Error { 
+        code: i32, 
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        details: Option<std::collections::HashMap<String, serde_json::Value>>,
+    },
 }
 
 impl Message {
@@ -299,6 +567,39 @@ impl Message {
             Message::User { content } => Some(content),
             Message::Assistant { content } => Some(content),
             _ => None,
+        }
+    }
+    
+    /// Create a new error message
+    ///
+    /// # Arguments
+    /// * `code` - The error code
+    /// * `message` - The error message
+    ///
+    /// # Returns
+    /// A new Message::Error variant
+    pub fn error(code: i32, message: String) -> Self {
+        Message::Error {
+            code,
+            message,
+            details: None,
+        }
+    }
+    
+    /// Create a new error message with details
+    ///
+    /// # Arguments
+    /// * `code` - The error code
+    /// * `message` - The error message
+    /// * `details` - Additional error details
+    ///
+    /// # Returns
+    /// A new Message::Error variant
+    pub fn error_with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+        Message::Error {
+            code,
+            message,
+            details: Some(details),
         }
     }
 }

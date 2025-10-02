@@ -62,7 +62,7 @@ async fn demonstrate_permission_mode(mode: PermissionMode, mode_name: &str) -> R
                         println!("\n✅ Task completed");
                         break;
                     }
-                    Message::Error { code, message: msg } => {
+                    Message::Error { code, message: msg, details: _ } => {
                         eprintln!("\n❌ Error {}: {}", code, msg);
                         break;
                     }

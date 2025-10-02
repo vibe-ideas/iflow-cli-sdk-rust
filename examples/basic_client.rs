@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("\n✅ Task completed");
                         break;
                     }
-                    Message::Error { code, message: msg } => {
+                    Message::Error { code, message: msg, details: _ } => {
                         eprintln!("\n❌ Error {}: {}", code, msg);
                         break;
                     }
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         // Send a message
-        let prompt = "say hello, how are you?";
+        let prompt = "Create a plan to introduce this project.";
         println!("📤 Sending: {}", prompt);
         client.send_message(prompt, None).await?;
 
