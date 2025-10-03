@@ -224,6 +224,10 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
 
             tracing::info!("iFlow process stopped");
         }
+        
+        // Clear the port when stopping
+        self.port = None;
+        
         Ok(())
     }
 
