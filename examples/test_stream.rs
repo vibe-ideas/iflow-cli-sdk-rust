@@ -13,7 +13,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            let options = IFlowOptions::new().with_auto_start_process(true);
+            let options = IFlowOptions::new()
+                .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start().stdio_mode());
 
             let mut client = IFlowClient::new(Some(options));
 

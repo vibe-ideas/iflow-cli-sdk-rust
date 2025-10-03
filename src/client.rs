@@ -15,7 +15,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::Duration;
+
 // ChildStdin import moved to where it's used
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
@@ -288,8 +288,8 @@ impl IFlowClient {
         let (sender, receiver) = mpsc::unbounded_channel();
         
         // Initialize logger if enabled
-        let logger = if options.log_config.enabled {
-            MessageLogger::new(options.log_config.clone()).ok()
+        let logger = if options.logging.enabled {
+            MessageLogger::new(options.logging.logger_config.clone()).ok()
         } else {
             None
         };
@@ -319,7 +319,7 @@ impl IFlowClient {
         }
 
         // Check if we should use WebSocket or stdio
-        if self.options.websocket_url.is_some() {
+        if self.options.websocket.is_some() {
             self.connect_websocket().await
         } else {
             self.connect_stdio().await
@@ -330,9 +330,10 @@ impl IFlowClient {
     async fn connect_stdio(&mut self) -> Result<()> {
         info!("Connecting to iFlow via stdio");
 
-        // Start iFlow process if auto_start_process is enabled
-        let mut process_manager = if self.options.auto_start_process {
-            let mut pm = IFlowProcessManager::new(self.options.process_start_port);
+        // Start iFlow process if auto_start is enabled
+        let mut process_manager = if self.options.process.auto_start {
+            let port = self.options.process.start_port.unwrap_or(8090);
+            let mut pm = IFlowProcessManager::new(port);
             let _url = pm.start(false).await?; // false for stdio
             info!("iFlow process started");
             Some(pm)
@@ -383,23 +384,29 @@ impl IFlowClient {
     async fn connect_websocket(&mut self) -> Result<()> {
         info!("Connecting to iFlow via WebSocket");
         
-        let websocket_url = self.options.websocket_url.as_ref()
-            .ok_or_else(|| IFlowError::Connection("WebSocket URL not configured".to_string()))?
-            .clone();
+        let websocket_config = self.options.websocket.as_ref()
+            .ok_or_else(|| IFlowError::Connection("WebSocket configuration not provided".to_string()))?;
 
         // Keep the process manager when auto-start is needed
         let mut process_manager_to_keep: Option<IFlowProcessManager> = None;
 
-        // Check if we need to start iFlow process
-        let final_url = if self.options.auto_start_process && websocket_url.starts_with("ws://localhost:") {
+        // For manual start mode, directly use the provided WebSocket URL
+        // For auto start mode, try to connect first and start process if needed
+        let final_url = if self.options.process.auto_start && websocket_config.url.starts_with("ws://localhost:") {
             info!("iFlow auto-start enabled, checking if iFlow is already running...");
             
             // Try to connect first to see if iFlow is already running
-            let mut test_transport = WebSocketTransport::new(websocket_url.clone(), self.options.timeout);
+            let mut test_transport = WebSocketTransport::new(websocket_config.url.clone(), self.options.timeout);
             if test_transport.connect().await.is_err() {
                 // iFlow not running, start it
                 info!("iFlow not running, starting process...");
-                let mut pm = IFlowProcessManager::new(self.options.process_start_port);
+                // Extract port from WebSocket URL or use configured port
+                let port = websocket_config.url.split(':').nth(2)
+                    .and_then(|port_str| port_str.split('/').next())
+                    .and_then(|port_str| port_str.parse::<u16>().ok())
+                    .or(self.options.process.start_port)
+                    .unwrap_or(8090);
+                let mut pm = IFlowProcessManager::new(port);
                 let iflow_url = pm.start(true).await?
                     .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
                 info!("Started iFlow process at {}", iflow_url);
@@ -410,10 +417,12 @@ impl IFlowClient {
                 iflow_url
             } else {
                 let _ = test_transport.close().await;
-                websocket_url.clone()
+                websocket_config.url.clone()
             }
         } else {
-            websocket_url.clone()
+            // In manual start mode or for non-local URLs, directly use the provided URL
+            info!("Using manual start mode or non-local WebSocket URL");
+            websocket_config.url.clone()
         };
 
         // Create WebSocket transport with increased timeout
@@ -421,9 +430,8 @@ impl IFlowClient {
 
         // Connect to WebSocket with retry logic
         let mut connect_attempts = 0;
-        let max_connect_attempts = 5;
         
-        while connect_attempts < max_connect_attempts {
+        while connect_attempts < websocket_config.reconnect_attempts {
             match transport.connect().await {
                 Ok(_) => {
                     info!("Successfully connected to WebSocket at {}", final_url);
@@ -433,17 +441,16 @@ impl IFlowClient {
                     connect_attempts += 1;
                     tracing::warn!("Failed to connect to WebSocket (attempt {}): {}", connect_attempts, e);
                     
-                    if connect_attempts >= max_connect_attempts {
+                    if connect_attempts >= websocket_config.reconnect_attempts {
                         return Err(IFlowError::Connection(format!(
                             "Failed to connect to WebSocket after {} attempts: {}", 
-                            max_connect_attempts, e
+                            websocket_config.reconnect_attempts, e
                         )));
                     }
                     
-                    // Wait before retrying, with exponential backoff
-                    let delay = Duration::from_millis(1000 * connect_attempts as u64);
-                    tracing::info!("Waiting {:?} before retry...", delay);
-                    tokio::time::sleep(delay).await;
+                    // Wait before retrying
+                    tracing::info!("Waiting {:?} before retry...", websocket_config.reconnect_interval);
+                    tokio::time::sleep(websocket_config.reconnect_interval).await;
                 }
             }
         }

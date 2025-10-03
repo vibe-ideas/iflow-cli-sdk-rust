@@ -14,12 +14,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
     local.run_until(async {
-        // Configure client options with WebSocket URL and custom timeout
+        // Configure client options with WebSocket configuration and custom timeout
         let custom_timeout_secs = 120.0;
         let options = IFlowOptions::new()
-            .with_websocket_url("ws://localhost:8090/acp?peer=iflow")
+            .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig {
+                url: "ws://localhost:8090/acp?peer=iflow".to_string(),
+                reconnect_attempts: 3,
+                reconnect_interval: std::time::Duration::from_secs(5),
+            })
             .with_timeout(custom_timeout_secs)
-            .with_auto_start_process(true); // Auto-start when using WebSocket
+            .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start().start_port(8090));
 
         // Create and connect client
         let mut client = IFlowClient::new(Some(options));

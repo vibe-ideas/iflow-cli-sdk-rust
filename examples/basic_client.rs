@@ -14,10 +14,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
     local.run_until(async {
-        // Configure client options
+        // Configure client options with auto-start enabled for stdio mode
         let options = IFlowOptions::new()
-            .with_auto_start_process(true)
-            .with_log_file("logs/iflow_client.log");
+            .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start().stdio_mode())
+            .with_logging_config(iflow_cli_sdk_rust::types::LoggingConfig {
+                enabled: true,
+                level: "INFO".to_string(),
+                logger_config: iflow_cli_sdk_rust::logger::LoggerConfig {
+                    enabled: true,
+                    log_file: "logs/iflow_client.log".into(),
+                    max_file_size: 10 * 1024 * 1024, // 10MB
+                    max_files: 5,
+                },
+            });
 
         // Create and connect client
         let mut client = IFlowClient::new(Some(options));
