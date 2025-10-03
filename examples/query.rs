@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let prompt = "What is the capital of France? Please provide a brief answer.";
     println!("❓ Query: {}", prompt);
 
-    match query_with_timeout(prompt, 10.0).await {
+    match query_with_timeout(prompt, 120.0).await {
         Ok(response) => {
             println!("💡 Answer: {}", response);
         }

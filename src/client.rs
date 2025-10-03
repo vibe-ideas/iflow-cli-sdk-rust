@@ -332,6 +332,7 @@ impl IFlowClient {
 
         // Start iFlow process if auto_start is enabled
         let mut process_manager = if self.options.process.auto_start {
+            // For stdio mode, we don't need a port
             let port = self.options.process.start_port.unwrap_or(8090);
             let mut pm = IFlowProcessManager::new(port);
             let _url = pm.start(false).await?; // false for stdio
@@ -516,9 +517,11 @@ impl IFlowClient {
 
     /// Send a message via stdio connection
     async fn send_message_stdio(&self, client: &ClientSideConnection, session_id: &mut Option<SessionId>, initialized: &mut bool, text: &str) -> Result<()> {
+        tracing::info!("send_message_stdio called with text: {}", text);
 
         // Initialize the connection if not already done
         if !*initialized {
+            tracing::info!("Initializing connection...");
             client
                 .initialize(agent_client_protocol::InitializeRequest {
                     protocol_version: agent_client_protocol::V1,
@@ -534,14 +537,21 @@ impl IFlowClient {
 
         // Create a new session if we don't have one
         if session_id.is_none() {
+            tracing::info!("Creating new session...");
+            let session_request = agent_client_protocol::NewSessionRequest {
+                mcp_servers: Vec::new(),
+                cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+                meta: None,
+            };
+            tracing::info!("Session request: {:?}", session_request);
+            
             let session_response = client
-                .new_session(agent_client_protocol::NewSessionRequest {
-                    mcp_servers: Vec::new(),
-                    cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
-                    meta: None,
-                })
+                .new_session(session_request)
                 .await
-                .map_err(|e| IFlowError::Connection(format!("Failed to create session: {}", e)))?;
+                .map_err(|e| {
+                    tracing::error!("Failed to create session: {}", e);
+                    IFlowError::Connection(format!("Failed to create session: {}", e))
+                })?;
 
             *session_id = Some(session_response.session_id);
             info!("Created new session: {:?}", session_id);
@@ -551,6 +561,7 @@ impl IFlowClient {
         let current_session_id = session_id.as_ref().unwrap();
 
         // Send the prompt and wait for completion
+        tracing::info!("Sending prompt to session: {:?}", current_session_id);
         let prompt_response = client
             .prompt(agent_client_protocol::PromptRequest {
                 session_id: current_session_id.clone(),
@@ -562,7 +573,12 @@ impl IFlowClient {
                 meta: None,
             })
             .await
-            .map_err(|e| IFlowError::Connection(format!("Failed to send message: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!("Failed to send message: {}", e);
+                IFlowError::Connection(format!("Failed to send message: {}", e))
+            })?;
+
+        tracing::info!("Prompt response received, stop reason: {:?}", prompt_response.stop_reason);
 
         // Send task finish message with the actual stop reason
         let message = Message::TaskFinish {
@@ -571,7 +587,10 @@ impl IFlowClient {
 
         self.message_sender
             .send(message)
-            .map_err(|_| IFlowError::Connection("Message channel closed".to_string()))?;
+            .map_err(|e| {
+                tracing::error!("Failed to send task finish message: {}", e);
+                IFlowError::Connection("Message channel closed".to_string())
+            })?;
 
         info!("Sent message to iFlow via stdio: {}", text);
         Ok(())

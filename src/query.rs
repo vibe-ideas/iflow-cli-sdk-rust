@@ -29,7 +29,7 @@ use tokio::time::timeout;
 /// }
 /// ```
 pub async fn query(prompt: &str) -> Result<String> {
-    query_with_timeout(prompt, 30.0).await
+    query_with_timeout(prompt, 120.0).await
 }
 
 /// Simple synchronous query to iFlow with custom timeout
@@ -51,7 +51,7 @@ pub async fn query(prompt: &str) -> Result<String> {
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let response = query_with_timeout("What is 2 + 2?", 10.0).await?;
+///     let response = query_with_timeout("What is 2 + 2?", 120.0).await?;
 ///     println!("{}", response);
 ///     Ok(())
 /// }
@@ -62,35 +62,49 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
         let local = tokio::task::LocalSet::new();
         local
             .run_until(async {
-                // Create client with the specified timeout
-                let options = IFlowOptions::new().with_timeout(timeout_secs);
+                // Create client with the specified timeout and auto-start configuration for stdio mode
+                let options = IFlowOptions::new()
+                    .with_timeout(timeout_secs)
+                    .with_process_config(
+                        crate::types::ProcessConfig::new()
+                            .enable_auto_start()
+                            .stdio_mode()
+                    );
+                tracing::info!("Creating IFlowClient with options: auto_start={}, start_port={:?}", 
+                    options.process.auto_start, options.process.start_port);
                 let mut client = IFlowClient::new(Some(options));
+                tracing::info!("Connecting to iFlow...");
                 client.connect().await?;
+                tracing::info!("Connected to iFlow");
 
+                tracing::info!("Sending message: {}", prompt);
                 client.send_message(prompt, None).await?;
+                tracing::info!("Message sent");
 
                 let mut response = String::new();
                 let mut message_stream = client.messages();
 
-                // Receive messages in a loop
-                let mut finished = false;
-                while !finished {
-                    // Use a shorter timeout for individual message reception
+                // First wait for the send_message to complete by receiving the TaskFinish message
+                // The send_message function sends a TaskFinish message when the prompt is complete
+                let mut prompt_finished = false;
+                while !prompt_finished {
                     match timeout(Duration::from_secs_f64(1.0), message_stream.next()).await {
                         Ok(Some(message)) => {
+                            tracing::info!("Received message: {:?}", message);
                             match message {
                                 Message::Assistant { content } => {
                                     response.push_str(&content);
                                 }
                                 Message::TaskFinish { .. } => {
-                                    finished = true;
+                                    prompt_finished = true;
                                 }
                                 _ => {}
                             }
                         }
                         Ok(None) => {
                             // Stream ended
-                            finished = true;
+                            tracing::info!("Message stream ended");
+                            prompt_finished = true;
                         }
                         Err(_) => {
                             // Timeout on individual message - this is expected during normal operation
@@ -98,6 +112,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                         }
                     }
                 }
+                tracing::info!("Query completed, response length: {}", response.len());
 
                 client.disconnect().await?;
                 Ok(response.trim().to_string())

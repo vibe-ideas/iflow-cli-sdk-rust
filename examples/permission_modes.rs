@@ -34,7 +34,7 @@ async fn demonstrate_permission_mode(mode: PermissionMode, mode_name: &str) -> R
                 reconnect_attempts: 3,
                 reconnect_interval: std::time::Duration::from_secs(5),
             })
-            .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().manual_start())
+            .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start())
             .with_permission_mode(mode);
 
         // Create and connect client

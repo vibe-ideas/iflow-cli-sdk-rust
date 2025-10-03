@@ -164,6 +164,8 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             cmd.stderr(Stdio::piped());
             cmd.stdin(Stdio::piped()); // stdin needed for stdio
 
+            tracing::info!("Starting iFlow process with command: {:?}", cmd);
+
             let child = cmd
                 .spawn()
                 .map_err(|e| IFlowError::ProcessManager(format!("Failed to start iflow: {}", e)))?;
@@ -171,7 +173,9 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             self.process = Some(child);
 
             // Wait for process to start
+            tracing::info!("Waiting for iFlow process to start...");
             sleep(Duration::from_secs(5)).await;
+            tracing::info!("iFlow process should be started by now");
 
             tracing::info!("iFlow process started with stdio support");
 
