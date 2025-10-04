@@ -85,3 +85,4 @@ RUST_LOG=info cargo run --example basic_client
 - Uses the official `agent-client-protocol` crate for ACP implementation
 - Follows Rust async/await patterns with Tokio runtime
 - Provides both high-level convenience functions and low-level client control
+- WebSocketConfig provides default parameters for reconnect_attempts and reconnect_interval, with auto-start mode support

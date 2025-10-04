@@ -27,13 +27,9 @@ async fn demonstrate_permission_mode(mode: PermissionMode, mode_name: &str) -> R
     let local = tokio::task::LocalSet::new();
     local.run_until(async {
         // Configure client options with WebSocket configuration and specific permission mode
-        // In manual start mode, we connect to an already running iFlow instance
+        // In auto start mode, we let the SDK generate the WebSocket URL
         let options = IFlowOptions::new()
-            .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig {
-                url: "ws://localhost:8090/acp?peer=iflow".to_string(),
-                reconnect_attempts: 3,
-                reconnect_interval: std::time::Duration::from_secs(5),
-            })
+            .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
             .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start())
             .with_permission_mode(mode);
 

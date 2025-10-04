@@ -393,20 +393,45 @@ impl IFlowClient {
 
         // For manual start mode, directly use the provided WebSocket URL
         // For auto start mode, try to connect first and start process if needed
-        let final_url = if self.options.process.auto_start && websocket_config.url.starts_with("ws://localhost:") {
-            info!("iFlow auto-start enabled, checking if iFlow is already running...");
-            
-            // Try to connect first to see if iFlow is already running
-            let mut test_transport = WebSocketTransport::new(websocket_config.url.clone(), self.options.timeout);
-            if test_transport.connect().await.is_err() {
-                // iFlow not running, start it
-                info!("iFlow not running, starting process...");
-                // Extract port from WebSocket URL or use configured port
-                let port = websocket_config.url.split(':').nth(2)
-                    .and_then(|port_str| port_str.split('/').next())
-                    .and_then(|port_str| port_str.parse::<u16>().ok())
-                    .or(self.options.process.start_port)
-                    .unwrap_or(8090);
+        let final_url = if self.options.process.auto_start {
+            if let Some(url) = &websocket_config.url {
+                // If URL is provided, check if it's a local URL and try to connect first
+                if url.starts_with("ws://localhost:") {
+                    info!("iFlow auto-start enabled with provided URL, checking if iFlow is already running...");
+                    
+                    // Try to connect first to see if iFlow is already running
+                    let mut test_transport = WebSocketTransport::new(url.clone(), self.options.timeout);
+                    if test_transport.connect().await.is_err() {
+                        // iFlow not running, start it
+                        info!("iFlow not running, starting process...");
+                        // Extract port from WebSocket URL or use configured port
+                        let port = url.split(':').nth(2)
+                            .and_then(|port_str| port_str.split('/').next())
+                            .and_then(|port_str| port_str.parse::<u16>().ok())
+                            .or(self.options.process.start_port)
+                            .unwrap_or(8090);
+                        let mut pm = IFlowProcessManager::new(port);
+                        let iflow_url = pm.start(true).await?
+                            .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
+                        info!("Started iFlow process at {}", iflow_url);
+
+                        // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
+                        process_manager_to_keep = Some(pm);
+
+                        iflow_url
+                    } else {
+                        let _ = test_transport.close().await;
+                        url.clone()
+                    }
+                } else {
+                    // For non-local URLs, directly use the provided URL
+                    info!("Using manual start mode or non-local WebSocket URL");
+                    url.clone()
+                }
+            } else {
+                // URL is None, auto-generate it by starting iFlow process
+                info!("iFlow auto-start enabled with auto-generated URL...");
+                let port = self.options.process.start_port.unwrap_or(8090);
                 let mut pm = IFlowProcessManager::new(port);
                 let iflow_url = pm.start(true).await?
                     .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
@@ -416,14 +441,13 @@ impl IFlowClient {
                 process_manager_to_keep = Some(pm);
 
                 iflow_url
-            } else {
-                let _ = test_transport.close().await;
-                websocket_config.url.clone()
             }
         } else {
-            // In manual start mode or for non-local URLs, directly use the provided URL
-            info!("Using manual start mode or non-local WebSocket URL");
-            websocket_config.url.clone()
+            // Manual start mode, URL must be provided
+            let url = websocket_config.url.as_ref()
+                .ok_or_else(|| IFlowError::Connection("WebSocket URL must be provided in manual start mode".to_string()))?;
+            info!("Using manual start mode with WebSocket URL: {}", url);
+            url.clone()
         };
 
         // Create WebSocket transport with increased timeout

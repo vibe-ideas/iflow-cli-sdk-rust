@@ -123,16 +123,40 @@ let options = IFlowOptions::new()
 
 ### WebSocket Communication
 
-The SDK supports WebSocket communication with iFlow for better performance and reliability. To use WebSocket, specify the WebSocket URL in the options:
+The SDK supports WebSocket communication with iFlow for better performance and reliability. To use WebSocket, specify the WebSocket configuration in the options:
 
 ```rust
-use iflow_cli_sdk_rust::IFlowOptions;
+use iflow_cli_sdk_rust::{IFlowOptions, types::WebSocketConfig};
 
+// Simple configuration with default reconnect settings
 let options = IFlowOptions::new()
-    .with_websocket_url("ws://localhost:8080".to_string());
+    .with_websocket_config(WebSocketConfig::new("ws://localhost:8090/acp?peer=iflow".to_string()));
+
+// Or use the default configuration
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::default());
+
+// Or configure with custom reconnect settings
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::with_reconnect_settings(
+        "ws://localhost:8090/acp?peer=iflow".to_string(),
+        5,  // reconnect attempts
+        std::time::Duration::from_secs(10)  // reconnect interval
+    ));
+
+// In auto-start mode, you can omit the URL entirely
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::auto_start());
+
+// Or configure auto-start mode with custom reconnect settings
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::auto_start_with_reconnect_settings(
+        5,  // reconnect attempts
+        std::time::Duration::from_secs(10)  // reconnect interval
+    ));
 ```
 
-If you enable auto-start process with a WebSocket URL pointing to localhost, the SDK will automatically start the iFlow process if it's not already running.
+If you enable auto-start process with a WebSocket URL pointing to localhost, the SDK will automatically start the iFlow process if it's not already running. In auto-start mode, you can omit the URL entirely and let the SDK generate it automatically.
 
 ## Message Types
 
@@ -200,6 +224,10 @@ cargo build
 
 ```bash
 cargo test
+
+# Run specific test suites
+cargo test --test websocket_config_tests
+cargo test --test websocket_integration_tests
 
 # e2e tests
 cargo test --test e2e_tests -- --nocapture

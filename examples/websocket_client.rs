@@ -17,11 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Configure client options with WebSocket configuration and custom timeout
         let custom_timeout_secs = 120.0;
         let options = IFlowOptions::new()
-            .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig {
-                url: "ws://localhost:8090/acp?peer=iflow".to_string(),
-                reconnect_attempts: 3,
-                reconnect_interval: std::time::Duration::from_secs(5),
-            })
+            .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
             .with_timeout(custom_timeout_secs)
             .with_process_config(iflow_cli_sdk_rust::types::ProcessConfig::new().enable_auto_start().start_port(8090));
 
