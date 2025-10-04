@@ -401,27 +401,45 @@ impl IFlowClient {
                     
                     // Try to connect first to see if iFlow is already running
                     let mut test_transport = WebSocketTransport::new(url.clone(), self.options.timeout);
-                    if test_transport.connect().await.is_err() {
-                        // iFlow not running, start it
-                        info!("iFlow not running, starting process...");
-                        // Extract port from WebSocket URL or use configured port
-                        let port = url.split(':').nth(2)
-                            .and_then(|port_str| port_str.split('/').next())
-                            .and_then(|port_str| port_str.parse::<u16>().ok())
-                            .or(self.options.process.start_port)
-                            .unwrap_or(8090);
-                        let mut pm = IFlowProcessManager::new(port);
-                        let iflow_url = pm.start(true).await?
-                            .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
-                        info!("Started iFlow process at {}", iflow_url);
+                    match test_transport.connect().await {
+                        Ok(_) => {
+                            // Successfully connected to existing iFlow process
+                            let _ = test_transport.close().await;
+                            info!("Connected to existing iFlow process at {}", url);
+                            url.clone()
+                        }
+                        Err(e) => {
+                            // Connection failed, check if it's because the port is in use
+                            // Extract port from WebSocket URL
+                            let port = url.split(':').nth(2)
+                                .and_then(|port_str| port_str.split('/').next())
+                                .and_then(|port_str| port_str.parse::<u16>().ok())
+                                .unwrap_or(8090);
+                            
+                            // Check if the port is actually listening
+                            if IFlowProcessManager::is_port_listening(port) {
+                                // Port is listening, so iFlow is running but we can't connect for some other reason
+                                // This could be because:
+                                // 1. There's already another WebSocket connection to this iFlow instance
+                                // 2. Authentication or other protocol issues
+                                // 3. The iFlow instance is busy or not ready
+                                info!("iFlow appears to be running on port {}, but connection failed: {}", port, e);
+                                info!("Since iFlow is running on the specified port, we won't start a new process. Please check if the existing iFlow instance is configured correctly for WebSocket connections.");
+                                return Err(IFlowError::Connection(format!("Failed to connect to existing iFlow process at {}: {}. iFlow appears to be running on port {}, but connection could not be established.", url, e, port)));
+                            } else {
+                                // Port is not listening, iFlow is not running, start it
+                                info!("iFlow not running on port {}, starting process: {}", port, e);
+                                let mut pm = IFlowProcessManager::new(port);
+                                let iflow_url = pm.start(true).await?
+                                    .ok_or_else(|| IFlowError::Connection("Failed to start iFlow with WebSocket".to_string()))?;
+                                info!("Started iFlow process at {}", iflow_url);
 
-                        // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
-                        process_manager_to_keep = Some(pm);
+                                // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
+                                process_manager_to_keep = Some(pm);
 
-                        iflow_url
-                    } else {
-                        let _ = test_transport.close().await;
-                        url.clone()
+                                iflow_url
+                            }
+                        }
                     }
                 } else {
                     // For non-local URLs, directly use the provided URL

@@ -54,7 +54,7 @@ fn is_port_available(port: u16) -> bool {
 ///
 /// # Returns
 /// True if the port is listening, False otherwise
-fn is_port_listening(port: u16) -> bool {
+pub fn is_port_listening(port: u16) -> bool {
     use std::net::TcpStream;
     use std::time::Duration;
     TcpStream::connect_timeout(
