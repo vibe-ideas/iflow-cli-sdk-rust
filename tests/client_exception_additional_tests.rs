@@ -162,20 +162,26 @@ mod tests {
     /// Test client drop behavior with connection attempts
     #[tokio::test]
     async fn test_client_drop_with_connection_attempts() {
-        // Create client in a scope to ensure it gets dropped
-        {
-            let mut client = IFlowClient::new(None);
-            
-            // Try multiple connection attempts (all may fail, but that's OK)
-            let _ = client.connect().await;
-            let _ = client.connect().await;
-            let _ = client.disconnect().await;
-            
-            // Client will be dropped here
-        }
-        
-        // If we get here without panicking, the drop worked correctly
-        assert!(true);
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                // Create client in a scope to ensure it gets dropped
+                {
+                    let mut client = IFlowClient::new(None);
+                    
+                    // Try multiple connection attempts (all may fail, but that's OK)
+                    let _ = client.connect().await;
+                    let _ = client.connect().await;
+                    let _ = client.disconnect().await;
+                    
+                    // Client will be dropped here
+                }
+                
+                // If we get here without panicking, the drop worked correctly
+                assert!(true);
+            })
+            .await;
     }
 
     /// Test client behavior with chained operations
