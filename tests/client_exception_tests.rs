@@ -31,32 +31,38 @@ mod tests {
     /// Test connecting without iFlow running (should fail)
     #[tokio::test]
     async fn test_connect_without_iflow_running() {
-        let mut client = IFlowClient::new(None);
-        let result = client.connect().await;
-        
-        // We expect this to fail since iFlow is not running
-        // The exact error type may vary depending on the system
-        match result {
-            Ok(_) => {
-                // If connection succeeded, that's unexpected in this test environment
-                // but not necessarily wrong
-                println!("Connection succeeded unexpectedly");
-            }
-            Err(IFlowError::Connection(_)) => {
-                // This is expected when iFlow is not running
-                assert!(true);
-            }
-            Err(IFlowError::ProcessManager(_)) => {
-                // This is also expected when iFlow is not installed
-                assert!(true);
-            }
-            Err(e) => {
-                // Any other error might be unexpected, but we'll consider it OK
-                // since we're testing error paths
-                println!("Received unexpected error type: {:?}", e);
-                assert!(true);
-            }
-        }
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut client = IFlowClient::new(None);
+                let result = client.connect().await;
+                
+                // We expect this to fail since iFlow is not running
+                // The exact error type may vary depending on the system
+                match result {
+                    Ok(_) => {
+                        // If connection succeeded, that's unexpected in this test environment
+                        // but not necessarily wrong
+                        println!("Connection succeeded unexpectedly");
+                    }
+                    Err(IFlowError::Connection(_)) => {
+                        // This is expected when iFlow is not running
+                        assert!(true);
+                    }
+                    Err(IFlowError::ProcessManager(_)) => {
+                        // This is also expected when iFlow is not installed
+                        assert!(true);
+                    }
+                    Err(e) => {
+                        // Any other error might be unexpected, but we'll consider it OK
+                        // since we're testing error paths
+                        println!("Received unexpected error type: {:?}", e);
+                        assert!(true);
+                    }
+                }
+            })
+            .await;
     }
 
     /// Test connecting with manual start mode (stdio)
@@ -127,34 +133,40 @@ mod tests {
     /// Test connecting with auto start mode but invalid port
     #[tokio::test]
     async fn test_connect_with_auto_start_invalid_port() {
-        // Use a valid but likely unused port
-        let options = IFlowOptions::new()
-            .with_auto_start(true)
-            .with_process_config(ProcessConfig::new().enable_auto_start().start_port(12345));
-        
-        let mut client = IFlowClient::new(Some(options));
-        let result = client.connect().await;
-        
-        // This should fail with a process manager error since iFlow is likely not installed
-        match result {
-            Ok(_) => {
-                // Unexpected success
-                println!("Connection succeeded unexpectedly with port 12345");
-            }
-            Err(IFlowError::ProcessManager(_)) => {
-                // Expected error when iFlow is not installed
-                assert!(true);
-            }
-            Err(IFlowError::Connection(_)) => {
-                // Also acceptable
-                assert!(true);
-            }
-            Err(e) => {
-                // Any other error is also acceptable in this context
-                println!("Received error: {:?}", e);
-                assert!(true);
-            }
-        }
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                // Use a valid but likely unused port
+                let options = IFlowOptions::new()
+                    .with_auto_start(true)
+                    .with_process_config(ProcessConfig::new().enable_auto_start().start_port(12345));
+                
+                let mut client = IFlowClient::new(Some(options));
+                let result = client.connect().await;
+                
+                // This should fail with a process manager error since iFlow is likely not installed
+                match result {
+                    Ok(_) => {
+                        // Unexpected success
+                        println!("Connection succeeded unexpectedly with port 12345");
+                    }
+                    Err(IFlowError::ProcessManager(_)) => {
+                        // Expected error when iFlow is not installed
+                        assert!(true);
+                    }
+                    Err(IFlowError::Connection(_)) => {
+                        // Also acceptable
+                        assert!(true);
+                    }
+                    Err(e) => {
+                        // Any other error is also acceptable in this context
+                        println!("Received error: {:?}", e);
+                        assert!(true);
+                    }
+                }
+            })
+            .await;
     }
 
     /// Test sending message without connecting first
@@ -215,21 +227,27 @@ mod tests {
     /// Test double connect (should be idempotent)
     #[tokio::test]
     async fn test_double_connect() {
-        let mut client = IFlowClient::new(None);
-        
-        // First connect attempt
-        let result1 = client.connect().await;
-        
-        // Second connect attempt
-        let result2 = client.connect().await;
-        
-        // At least one should succeed or fail gracefully
-        // The second should not cause any issues
-        assert!(true); // If we get here, double connect didn't panic
-        
-        // Print results for debugging
-        println!("First connect result: {:?}", result1);
-        println!("Second connect result: {:?}", result2);
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut client = IFlowClient::new(None);
+                
+                // First connect attempt
+                let result1 = client.connect().await;
+                
+                // Second connect attempt
+                let result2 = client.connect().await;
+                
+                // At least one should succeed or fail gracefully
+                // The second should not cause any issues
+                assert!(true); // If we get here, double connect didn't panic
+                
+                // Print results for debugging
+                println!("First connect result: {:?}", result1);
+                println!("Second connect result: {:?}", result2);
+            })
+            .await;
     }
 
     /// Test double disconnect (should be idempotent)
@@ -251,86 +269,104 @@ mod tests {
     /// Test connect then disconnect then connect again
     #[tokio::test]
     async fn test_connect_disconnect_reconnect() {
-        let mut client = IFlowClient::new(None);
-        
-        // Connect
-        let connect_result = client.connect().await;
-        
-        // Disconnect
-        let disconnect_result = client.disconnect().await;
-        assert!(disconnect_result.is_ok());
-        
-        // Reconnect
-        let reconnect_result = client.connect().await;
-        
-        // All operations should complete without panicking
-        assert!(true); // If we get here, the sequence worked
-        
-        // Print results for debugging
-        println!("Connect result: {:?}", connect_result);
-        println!("Reconnect result: {:?}", reconnect_result);
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut client = IFlowClient::new(None);
+                
+                // Connect
+                let connect_result = client.connect().await;
+                
+                // Disconnect
+                let disconnect_result = client.disconnect().await;
+                assert!(disconnect_result.is_ok());
+                
+                // Reconnect
+                let reconnect_result = client.connect().await;
+                
+                // All operations should complete without panicking
+                assert!(true); // If we get here, the sequence worked
+                
+                // Print results for debugging
+                println!("Connect result: {:?}", connect_result);
+                println!("Reconnect result: {:?}", reconnect_result);
+            })
+            .await;
     }
 
     /// Test client with very short timeout
     #[tokio::test]
     async fn test_client_with_very_short_timeout() {
-        let options = IFlowOptions::new().with_timeout(0.001); // Very short timeout
-        let mut client = IFlowClient::new(Some(options));
-        let result = client.connect().await;
-        
-        // This might timeout or fail for other reasons
-        match result {
-            Ok(_) => {
-                // Unexpected success with very short timeout
-                println!("Connection succeeded unexpectedly with very short timeout");
-            }
-            Err(IFlowError::Timeout(_)) => {
-                // Expected timeout error
-                assert!(true);
-            }
-            Err(IFlowError::Connection(_)) => {
-                // Also acceptable
-                assert!(true);
-            }
-            Err(IFlowError::ProcessManager(_)) => {
-                // Also acceptable
-                assert!(true);
-            }
-            Err(e) => {
-                // Any other error is also acceptable in this context
-                println!("Received error: {:?}", e);
-                assert!(true);
-            }
-        }
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let options = IFlowOptions::new().with_timeout(0.001); // Very short timeout
+                let mut client = IFlowClient::new(Some(options));
+                let result = client.connect().await;
+                
+                // This might timeout or fail for other reasons
+                match result {
+                    Ok(_) => {
+                        // Unexpected success with very short timeout
+                        println!("Connection succeeded unexpectedly with very short timeout");
+                    }
+                    Err(IFlowError::Timeout(_)) => {
+                        // Expected timeout error
+                        assert!(true);
+                    }
+                    Err(IFlowError::Connection(_)) => {
+                        // Also acceptable
+                        assert!(true);
+                    }
+                    Err(IFlowError::ProcessManager(_)) => {
+                        // Also acceptable
+                        assert!(true);
+                    }
+                    Err(e) => {
+                        // Any other error is also acceptable in this context
+                        println!("Received error: {:?}", e);
+                        assert!(true);
+                    }
+                }
+            })
+            .await;
     }
 
     /// Test client with very long timeout
     #[tokio::test]
     async fn test_client_with_very_long_timeout() {
-        let options = IFlowOptions::new().with_timeout(3600.0); // 1 hour timeout
-        let mut client = IFlowClient::new(Some(options));
-        let result = client.connect().await;
-        
-        // This should behave normally, just with a longer timeout
-        match result {
-            Ok(_) => {
-                // Success is fine
-                assert!(true);
-            }
-            Err(IFlowError::Connection(_)) => {
-                // Expected when iFlow is not running
-                assert!(true);
-            }
-            Err(IFlowError::ProcessManager(_)) => {
-                // Also expected when iFlow is not installed
-                assert!(true);
-            }
-            Err(e) => {
-                // Any other error is also acceptable
-                println!("Received error: {:?}", e);
-                assert!(true);
-            }
-        }
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let options = IFlowOptions::new().with_timeout(3600.0); // 1 hour timeout
+                let mut client = IFlowClient::new(Some(options));
+                let result = client.connect().await;
+                
+                // This should behave normally, just with a longer timeout
+                match result {
+                    Ok(_) => {
+                        // Success is fine
+                        assert!(true);
+                    }
+                    Err(IFlowError::Connection(_)) => {
+                        // Expected when iFlow is not running
+                        assert!(true);
+                    }
+                    Err(IFlowError::ProcessManager(_)) => {
+                        // Also expected when iFlow is not installed
+                        assert!(true);
+                    }
+                    Err(e) => {
+                        // Any other error is also acceptable
+                        println!("Received error: {:?}", e);
+                        assert!(true);
+                    }
+                }
+            })
+            .await;
     }
 
     /// Test WebSocket connection with invalid URL
@@ -398,18 +434,24 @@ mod tests {
     /// Test client drop behavior
     #[tokio::test]
     async fn test_client_drop_behavior() {
-        // Create client in a scope to ensure it gets dropped
-        {
-            let mut client = IFlowClient::new(None);
-            
-            // Try to connect (may fail, but that's OK)
-            let _ = client.connect().await;
-            
-            // Client will be dropped here
-        }
-        
-        // If we get here without panicking, the drop worked correctly
-        assert!(true);
+        // Use LocalSet for spawn_local compatibility
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                // Create client in a scope to ensure it gets dropped
+                {
+                    let mut client = IFlowClient::new(None);
+                    
+                    // Try to connect (may fail, but that's OK)
+                    let _ = client.connect().await;
+                    
+                    // Client will be dropped here
+                }
+                
+                // If we get here without panicking, the drop worked correctly
+                assert!(true);
+            })
+            .await;
     }
 
     /// Test multiple clients creation
