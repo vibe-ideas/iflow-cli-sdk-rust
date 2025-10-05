@@ -21,8 +21,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .spawn()
         .expect("Failed to start iFlow process");
 
-    // Give the process a moment to start
-    tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+    // Give the process a moment to start - poll until the port is listening
+    println!("⏳ Waiting for iFlow process to be ready...");
+    let mut attempts = 0;
+    let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
+    
+    while attempts < max_attempts {
+        if std::net::TcpStream::connect_timeout(
+            &"127.0.0.1:8093".parse().unwrap(),
+            std::time::Duration::from_millis(100)
+        ).is_ok() {
+            println!("✅ iFlow WebSocket server is ready on port 8093");
+            break;
+        }
+        
+        attempts += 1;
+        if attempts % 5 == 0 {
+            println!("⏳ Still waiting for iFlow to be ready... (attempt {}/{})", attempts, max_attempts);
+        }
+        
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+    
+    if attempts >= max_attempts {
+        eprintln!("❌ iFlow process failed to start WebSocket server on port 8093 after {} seconds", max_attempts);
+        // Clean up the iFlow process
+        let _ = iflow_process.kill();
+        let _ = iflow_process.wait();
+        return Err("iFlow process failed to start".into());
+    }
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();

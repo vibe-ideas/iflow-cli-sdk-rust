@@ -20,8 +20,28 @@ mod tests {
             .spawn()
             .expect("Failed to start iFlow process");
 
-        // Give the process a moment to start
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        // Give the process a moment to start - poll until the port is listening
+        let mut attempts = 0;
+        let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
+        
+        while attempts < max_attempts {
+            if std::net::TcpStream::connect_timeout(
+                &"127.0.0.1:8092".parse().unwrap(),
+                std::time::Duration::from_millis(100)
+            ).is_ok() {
+                break;
+            }
+            
+            attempts += 1;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        
+        if attempts >= max_attempts {
+            // Clean up the iFlow process
+            let _ = iflow_process.kill();
+            let _ = iflow_process.wait();
+            panic!("iFlow process failed to start WebSocket server on port 8092 after {} seconds", max_attempts);
+        }
 
         // Configure client options to connect to the existing process
         let options = IFlowOptions::new()
