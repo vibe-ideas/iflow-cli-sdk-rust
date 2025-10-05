@@ -517,7 +517,7 @@ impl Default for IFlowOptions {
         Self {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             mcp_servers: Vec::new(),
-            timeout: 30.0,
+            timeout: 120.0,
             metadata: HashMap::new(),
             file_access: FileAccessConfig::default(),
             process: ProcessConfig::default(),

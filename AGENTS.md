@@ -45,6 +45,9 @@ cargo test --test e2e_tests -- --nocapture
 # Simple query example
 cargo run --example query
 
+# Simple query with custom configuration example
+cargo run --example query_with_config
+
 # Interactive client example
 cargo run --example basic_client
 

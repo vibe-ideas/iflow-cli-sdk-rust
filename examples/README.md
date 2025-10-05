@@ -14,6 +14,16 @@ cargo run --example query
 
 This example shows how to send a single query to iFlow and receive a complete response.
 
+### `query_with_config.rs`
+
+Demonstrates how to use the `query_with_config` function with custom configuration options.
+
+```bash
+cargo run --example query_with_config
+```
+
+This example shows how to configure the timeout and other options for a query.
+
 ### `query_stream.rs`
 
 Shows how to stream responses from iFlow in real-time as they are generated.
