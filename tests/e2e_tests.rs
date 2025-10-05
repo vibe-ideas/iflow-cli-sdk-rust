@@ -40,6 +40,12 @@ fn test_query() {
     run_example_test("query");
 }
 
+/// Test the query_with_config example
+#[test]
+fn test_query_with_config() {
+    run_example_test("query_with_config");
+}
+
 /// Test the test_realtime example
 #[test]
 fn test_test_realtime() {

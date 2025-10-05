@@ -107,6 +107,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                         Err(_) => {
                             // Timeout on individual message - this is expected during normal operation
                             // Continue the loop to check if we should still wait
+                            // The outer timeout will catch if we've exceeded the total time
                         }
                     }
                 }
@@ -203,6 +204,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                         Err(_) => {
                             // Timeout on individual message - this is expected during normal operation
                             // Continue the loop to check if we should still wait
+                            // The outer timeout will catch if we've exceeded the total time
                         }
                     }
                 }
