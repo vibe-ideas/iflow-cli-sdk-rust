@@ -1,6 +1,6 @@
 //! Simple query example using the convenience function with custom configuration
 
-use iflow_cli_sdk_rust::{query_with_config, IFlowOptions};
+use iflow_cli_sdk_rust::{IFlowOptions, query_with_config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,8 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("❓ Query: {}", prompt);
 
     // Create custom options with a 60-second timeout
-    let options = IFlowOptions::new()
-        .with_timeout(60.0);
+    let options = IFlowOptions::new().with_timeout(60.0);
 
     match query_with_config(prompt, options).await {
         Ok(response) => {

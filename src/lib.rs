@@ -66,7 +66,10 @@ pub use client::IFlowClient;
 pub use error::{IFlowError, Result};
 pub use logger::{LoggerConfig, MessageLogger};
 pub use process_manager::IFlowProcessManager;
-pub use query::{query, query_stream, query_with_timeout, query_stream_with_timeout, query_with_config, query_stream_with_config};
+pub use query::{
+    query, query_stream, query_stream_with_config, query_stream_with_timeout, query_with_config,
+    query_with_timeout,
+};
 pub use types::{IFlowOptions, Message};
 
 // Re-export types from agent-client-protocol that we actually use

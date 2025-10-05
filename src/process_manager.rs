@@ -28,7 +28,7 @@ impl IFlowProcessManager {
     /// # Returns
     /// A new IFlowProcessManager instance
     pub fn new(start_port: u16) -> Self {
-        Self { 
+        Self {
             process: None,
             start_port,
             port: None,
@@ -36,68 +36,69 @@ impl IFlowProcessManager {
     }
 
     /// Check if a port is available for use
-///
-/// # Arguments
-/// * `port` - Port number to check
-///
-/// # Returns
-/// True if the port is available, False otherwise
-fn is_port_available(port: u16) -> bool {
-    use std::net::TcpListener;
-    TcpListener::bind(("localhost", port)).is_ok()
-}
-
-/// Check if a port is listening (has a server running)
-///
-/// # Arguments
-/// * `port` - Port number to check
-///
-/// # Returns
-/// True if the port is listening, False otherwise
-pub fn is_port_listening(port: u16) -> bool {
-    use std::net::TcpStream;
-    use std::time::Duration;
-    TcpStream::connect_timeout(
-        &format!("127.0.0.1:{}", port).parse().unwrap(),
-        Duration::from_millis(100)
-    ).is_ok()
-}
-
-/// Find an available port starting from the given port
-///
-/// # Arguments
-/// * `start_port` - Port to start searching from
-/// * `max_attempts` - Maximum number of ports to try
-///
-/// # Returns
-/// An available port number
-///
-/// # Errors
-/// Returns an error if no available port is found
-fn find_available_port(start_port: u16, max_attempts: u16) -> Result<u16> {
-    for i in 0..max_attempts {
-        let port = start_port + i;
-        if Self::is_port_available(port) {
-            tracing::debug!("Found available port: {}", port);
-            return Ok(port);
-        }
+    ///
+    /// # Arguments
+    /// * `port` - Port number to check
+    ///
+    /// # Returns
+    /// True if the port is available, False otherwise
+    fn is_port_available(port: u16) -> bool {
+        use std::net::TcpListener;
+        TcpListener::bind(("localhost", port)).is_ok()
     }
-    
-    Err(IFlowError::ProcessManager(format!(
-        "No available port found in range {}-{}",
-        start_port,
-        start_port + max_attempts
-    )))
-}
 
-/// Start the iFlow process
-///
-/// Starts the iFlow CLI process with ACP support and WebSocket communication.
-///
-/// # Returns
-/// * `Ok(String)` containing the WebSocket URL if the process was started successfully
-/// * `Err(IFlowError)` if there was an error starting the process
-pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
+    /// Check if a port is listening (has a server running)
+    ///
+    /// # Arguments
+    /// * `port` - Port number to check
+    ///
+    /// # Returns
+    /// True if the port is listening, False otherwise
+    pub fn is_port_listening(port: u16) -> bool {
+        use std::net::TcpStream;
+        use std::time::Duration;
+        TcpStream::connect_timeout(
+            &format!("127.0.0.1:{}", port).parse().unwrap(),
+            Duration::from_millis(100),
+        )
+        .is_ok()
+    }
+
+    /// Find an available port starting from the given port
+    ///
+    /// # Arguments
+    /// * `start_port` - Port to start searching from
+    /// * `max_attempts` - Maximum number of ports to try
+    ///
+    /// # Returns
+    /// An available port number
+    ///
+    /// # Errors
+    /// Returns an error if no available port is found
+    fn find_available_port(start_port: u16, max_attempts: u16) -> Result<u16> {
+        for i in 0..max_attempts {
+            let port = start_port + i;
+            if Self::is_port_available(port) {
+                tracing::debug!("Found available port: {}", port);
+                return Ok(port);
+            }
+        }
+
+        Err(IFlowError::ProcessManager(format!(
+            "No available port found in range {}-{}",
+            start_port,
+            start_port + max_attempts
+        )))
+    }
+
+    /// Start the iFlow process
+    ///
+    /// Starts the iFlow CLI process with ACP support and WebSocket communication.
+    ///
+    /// # Returns
+    /// * `Ok(String)` containing the WebSocket URL if the process was started successfully
+    /// * `Err(IFlowError)` if there was an error starting the process
+    pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
         if use_websocket {
             tracing::info!("Starting iFlow process with experimental ACP and WebSocket support");
 
@@ -124,33 +125,40 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
             // Wait longer for process to start and WebSocket server to be ready
             tracing::info!("Waiting for iFlow process to start...");
             sleep(Duration::from_secs(8)).await;
-            
+
             // Verify the port is actually listening with more retries and longer timeout
             let mut attempts = 0;
             let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
-            
+
             while attempts < max_attempts {
                 if Self::is_port_listening(port) {
                     tracing::info!("iFlow WebSocket server is ready on port {}", port);
                     break;
                 }
-                
+
                 attempts += 1;
                 if attempts % 5 == 0 {
-                    tracing::info!("Still waiting for iFlow to be ready... (attempt {}/{})", attempts, max_attempts);
+                    tracing::info!(
+                        "Still waiting for iFlow to be ready... (attempt {}/{})",
+                        attempts,
+                        max_attempts
+                    );
                 }
-                
+
                 sleep(Duration::from_secs(1)).await;
             }
-            
+
             if attempts >= max_attempts {
                 return Err(IFlowError::ProcessManager(format!(
-                    "iFlow process failed to start WebSocket server on port {} after {} seconds", 
+                    "iFlow process failed to start WebSocket server on port {} after {} seconds",
                     port, max_attempts
                 )));
             }
 
-            tracing::info!("iFlow process started with WebSocket support on port {}", port);
+            tracing::info!(
+                "iFlow process started with WebSocket support on port {}",
+                port
+            );
 
             // Return the WebSocket URL with peer parameter
             Ok(Some(format!("ws://localhost:{}/acp?peer=iflow", port)))
@@ -203,7 +211,9 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
                         Ok(Ok(_)) => tracing::info!("iFlow process stopped gracefully"),
                         Ok(Err(e)) => tracing::warn!("Error waiting for iFlow process: {}", e),
                         Err(_) => {
-                            tracing::warn!("Timeout waiting for iFlow process to exit, forcing termination");
+                            tracing::warn!(
+                                "Timeout waiting for iFlow process to exit, forcing termination"
+                            );
                             // Force kill if it didn't exit in time
                             let _ = process.start_kill();
                         }
@@ -218,16 +228,16 @@ pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
                     let _ = process.start_kill();
                 }
             }
-            
+
             // Add a small delay to ensure all resources are released
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
             tracing::info!("iFlow process stopped");
         }
-        
+
         // Clear the port when stopping
         self.port = None;
-        
+
         Ok(())
     }
 

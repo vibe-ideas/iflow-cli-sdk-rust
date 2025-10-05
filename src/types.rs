@@ -358,7 +358,7 @@ impl WebSocketConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a new WebSocketConfig for auto-start mode (URL will be auto-generated)
     pub fn auto_start() -> Self {
         Self {
@@ -366,18 +366,25 @@ impl WebSocketConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a new WebSocketConfig with custom reconnect settings
-    pub fn with_reconnect_settings(url: String, reconnect_attempts: u32, reconnect_interval: Duration) -> Self {
+    pub fn with_reconnect_settings(
+        url: String,
+        reconnect_attempts: u32,
+        reconnect_interval: Duration,
+    ) -> Self {
         Self {
             url: Some(url),
             reconnect_attempts,
             reconnect_interval,
         }
     }
-    
+
     /// Create a new WebSocketConfig for auto-start mode with custom reconnect settings
-    pub fn auto_start_with_reconnect_settings(reconnect_attempts: u32, reconnect_interval: Duration) -> Self {
+    pub fn auto_start_with_reconnect_settings(
+        reconnect_attempts: u32,
+        reconnect_interval: Duration,
+    ) -> Self {
         Self {
             url: None,
             reconnect_attempts,
@@ -433,29 +440,29 @@ impl ProcessConfig {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set whether to automatically start the iFlow process
     pub fn auto_start(mut self, auto_start: bool) -> Self {
         self.auto_start = auto_start;
         self
     }
-    
+
     /// Set the port to start the iFlow process on (only used in WebSocket mode)
     pub fn start_port(mut self, port: u16) -> Self {
         self.start_port = Some(port);
         self
     }
-    
+
     /// Disable process auto-start
     pub fn manual_start(self) -> Self {
         self.auto_start(false)
     }
-    
+
     /// Enable process auto-start
     pub fn enable_auto_start(self) -> Self {
         self.auto_start(true)
     }
-    
+
     /// Configure for stdio mode (no port needed)
     pub fn stdio_mode(mut self) -> Self {
         self.start_port = None;
@@ -673,7 +680,11 @@ impl ErrorMessageDetails {
     ///
     /// # Returns
     /// A new ErrorMessageDetails instance
-    pub fn with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+    pub fn with_details(
+        code: i32,
+        message: String,
+        details: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Self {
         Self {
             code,
             message,
@@ -715,8 +726,8 @@ pub enum Message {
 
     /// Error message
     #[serde(rename = "error")]
-    Error { 
-        code: i32, 
+    Error {
+        code: i32,
         message: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         details: Option<std::collections::HashMap<String, serde_json::Value>>,
@@ -746,7 +757,7 @@ impl Message {
             _ => None,
         }
     }
-    
+
     /// Create a new error message
     ///
     /// # Arguments
@@ -762,7 +773,7 @@ impl Message {
             details: None,
         }
     }
-    
+
     /// Create a new error message with details
     ///
     /// # Arguments
@@ -772,7 +783,11 @@ impl Message {
     ///
     /// # Returns
     /// A new Message::Error variant
-    pub fn error_with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+    pub fn error_with_details(
+        code: i32,
+        message: String,
+        details: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Self {
         Message::Error {
             code,
             message,

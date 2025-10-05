@@ -6,8 +6,8 @@
 
 #[cfg(test)]
 mod tests {
-    use iflow_cli_sdk_rust::process_manager::IFlowProcessManager;
     use iflow_cli_sdk_rust::error::IFlowError;
+    use iflow_cli_sdk_rust::process_manager::IFlowProcessManager;
     use std::time::Duration;
     use tokio::time::sleep;
 
@@ -16,25 +16,28 @@ mod tests {
     async fn test_auto_start_stdio() {
         let mut pm = IFlowProcessManager::new(8090);
         let result = pm.start(false).await;
-        
+
         // We expect this to fail if iFlow CLI is not installed
         // But we want to verify the process management logic itself
         match result {
             Ok(_) => {
                 // If iFlow started successfully, verify it's running
                 assert!(pm.is_running());
-                
+
                 // Stop the process
                 let stop_result = pm.stop().await;
                 assert!(stop_result.is_ok());
-                
+
                 // Verify it's no longer running
                 assert!(!pm.is_running());
             }
             Err(IFlowError::ProcessManager(msg)) => {
                 // This is expected if iFlow CLI is not installed
                 // We're testing the process management logic, not the installation
-                println!("Process manager error (expected if iFlow CLI not installed): {}", msg);
+                println!(
+                    "Process manager error (expected if iFlow CLI not installed): {}",
+                    msg
+                );
             }
             Err(e) => {
                 // Any other error is unexpected
@@ -48,7 +51,7 @@ mod tests {
     async fn test_auto_start_websocket() {
         let mut pm = IFlowProcessManager::new(8091);
         let result = pm.start(true).await;
-        
+
         // We expect this to fail if iFlow CLI is not installed
         // But we want to verify the process management logic itself
         match result {
@@ -57,18 +60,21 @@ mod tests {
                 assert!(pm.is_running());
                 assert!(url.is_some());
                 assert!(url.unwrap().starts_with("ws://localhost:"));
-                
+
                 // Stop the process
                 let stop_result = pm.stop().await;
                 assert!(stop_result.is_ok());
-                
+
                 // Verify it's no longer running
                 assert!(!pm.is_running());
             }
             Err(IFlowError::ProcessManager(msg)) => {
                 // This is expected if iFlow CLI is not installed
                 // We're testing the process management logic, not the installation
-                println!("Process manager error (expected if iFlow CLI not installed): {}", msg);
+                println!(
+                    "Process manager error (expected if iFlow CLI not installed): {}",
+                    msg
+                );
             }
             Err(e) => {
                 // Any other error is unexpected
@@ -83,12 +89,12 @@ mod tests {
         // This test assumes iFlow is not running on the system
         // We're testing the process management logic
         let mut pm = IFlowProcessManager::new(8092);
-        
+
         // In manual mode, we don't actually start the process
         // but we can test the methods
         assert!(!pm.is_running());
         assert_eq!(pm.port(), None);
-        
+
         // take_stdin and take_stdout should return None when no process is running
         assert!(pm.take_stdin().is_none());
         assert!(pm.take_stdout().is_none());
@@ -100,7 +106,7 @@ mod tests {
         // This test assumes iFlow is not running on the system
         // We're testing the process management logic
         let pm = IFlowProcessManager::new(8093);
-        
+
         // In manual mode, we don't actually start the process
         // but we can test the methods
         assert!(!pm.is_running());
@@ -112,7 +118,7 @@ mod tests {
     fn test_port_availability() {
         // This test checks the port availability logic
         // It doesn't actually start any processes
-        
+
         // Skip this test as the methods are private and we can't test them directly
         // In a real implementation, we might want to make these methods public
         // or create public test methods in the IFlowProcessManager
@@ -123,12 +129,12 @@ mod tests {
     async fn test_process_manager_drop() {
         // This test verifies that when the process manager is dropped,
         // it properly cleans up resources
-        
+
         // Create a scope to ensure the process manager is dropped
         {
             let mut pm = IFlowProcessManager::new(8095);
             let result = pm.start(false).await;
-            
+
             // Handle the result as in other tests
             match result {
                 Ok(_) => {
@@ -144,7 +150,7 @@ mod tests {
                 }
             }
         } // pm is dropped here
-        
+
         // Give a small delay to allow cleanup
         sleep(Duration::from_millis(100)).await;
     }

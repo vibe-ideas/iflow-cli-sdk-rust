@@ -1,6 +1,6 @@
 use crate::client::IFlowClient;
 use crate::error::Result;
-use crate::types::{Message, IFlowOptions};
+use crate::types::{IFlowOptions, Message};
 use futures::stream::StreamExt;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -64,7 +64,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
     // Use a fraction of the total timeout for individual message reception
     // This ensures we don't block indefinitely on any single message
     let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
-    
+
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
         local
@@ -86,7 +86,12 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                 // The send_message function sends a TaskFinish message when the prompt is complete
                 let mut prompt_finished = false;
                 while !prompt_finished {
-                    match timeout(Duration::from_secs_f64(message_timeout_secs), message_stream.next()).await {
+                    match timeout(
+                        Duration::from_secs_f64(message_timeout_secs),
+                        message_stream.next(),
+                    )
+                    .await
+                    {
                         Ok(Some(message)) => {
                             tracing::info!("Received message: {:?}", message);
                             match message {
@@ -117,9 +122,13 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                 Ok(response.trim().to_string())
             })
             .await
-    }).await {
+    })
+    .await
+    {
         Ok(result) => result,
-        Err(_) => Err(crate::error::IFlowError::Timeout("Operation timed out".to_string()))
+        Err(_) => Err(crate::error::IFlowError::Timeout(
+            "Operation timed out".to_string(),
+        )),
     }
 }
 
@@ -152,7 +161,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
     // Use a fraction of the total timeout for individual message reception
     // This ensures we don't block indefinitely on any single message
     let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
-    
+
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
         local
@@ -163,10 +172,13 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                     .with_process_config(
                         crate::types::ProcessConfig::new()
                             .enable_auto_start()
-                            .stdio_mode()
+                            .stdio_mode(),
                     );
-                tracing::info!("Creating IFlowClient with options: auto_start={}, start_port={:?}", 
-                    options.process.auto_start, options.process.start_port);
+                tracing::info!(
+                    "Creating IFlowClient with options: auto_start={}, start_port={:?}",
+                    options.process.auto_start,
+                    options.process.start_port
+                );
                 let mut client = IFlowClient::new(Some(options));
                 tracing::info!("Connecting to iFlow...");
                 client.connect().await?;
@@ -183,7 +195,12 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                 // The send_message function sends a TaskFinish message when the prompt is complete
                 let mut prompt_finished = false;
                 while !prompt_finished {
-                    match timeout(Duration::from_secs_f64(message_timeout_secs), message_stream.next()).await {
+                    match timeout(
+                        Duration::from_secs_f64(message_timeout_secs),
+                        message_stream.next(),
+                    )
+                    .await
+                    {
                         Ok(Some(message)) => {
                             tracing::info!("Received message: {:?}", message);
                             match message {
@@ -214,9 +231,13 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                 Ok(response.trim().to_string())
             })
             .await
-    }).await {
+    })
+    .await
+    {
         Ok(result) => result,
-        Err(_) => Err(crate::error::IFlowError::Timeout("Operation timed out".to_string()))
+        Err(_) => Err(crate::error::IFlowError::Timeout(
+            "Operation timed out".to_string(),
+        )),
     }
 }
 
@@ -288,7 +309,10 @@ pub async fn query_stream(prompt: &str) -> Result<impl futures::Stream<Item = St
 ///     Ok(())
 /// }
 /// ```
-pub async fn query_stream_with_config(prompt: &str, options: IFlowOptions) -> Result<impl futures::Stream<Item = String>> {
+pub async fn query_stream_with_config(
+    prompt: &str,
+    options: IFlowOptions,
+) -> Result<impl futures::Stream<Item = String>> {
     let local = tokio::task::LocalSet::new();
     // We need to run this in a LocalSet context but return a stream
     // Let's create the client and connection in the LocalSet context
@@ -360,7 +384,10 @@ pub async fn query_stream_with_config(prompt: &str, options: IFlowOptions) -> Re
 ///     Ok(())
 /// }
 /// ```
-pub async fn query_stream_with_timeout(prompt: &str, timeout_secs: f64) -> Result<impl futures::Stream<Item = String>> {
+pub async fn query_stream_with_timeout(
+    prompt: &str,
+    timeout_secs: f64,
+) -> Result<impl futures::Stream<Item = String>> {
     let local = tokio::task::LocalSet::new();
     // We need to run this in a LocalSet context but return a stream
     // Let's create the client and connection in the LocalSet context

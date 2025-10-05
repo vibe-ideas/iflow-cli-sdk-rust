@@ -8,7 +8,7 @@ use crate::error::{IFlowError, Result};
 use futures::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::time::Duration;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message, WebSocketStream};
+use tokio_tungstenite::{WebSocketStream, connect_async, tungstenite::protocol::Message};
 use tracing::info;
 use url::Url;
 
@@ -61,13 +61,13 @@ impl WebSocketTransport {
             .map_err(|e| IFlowError::Connection(format!("Invalid URL: {}", e)))?;
 
         // Attempt to connect with timeout
-        let (ws_stream, _) = tokio::time::timeout(
-            Duration::from_secs_f64(self.timeout),
-            connect_async(url),
-        )
-        .await
-        .map_err(|_| IFlowError::Timeout("Connection timeout".to_string()))?
-        .map_err(|e| IFlowError::Connection(format!("WebSocket connection failed: {}", e)))?;
+        let (ws_stream, _) =
+            tokio::time::timeout(Duration::from_secs_f64(self.timeout), connect_async(url))
+                .await
+                .map_err(|_| IFlowError::Timeout("Connection timeout".to_string()))?
+                .map_err(|e| {
+                    IFlowError::Connection(format!("WebSocket connection failed: {}", e))
+                })?;
 
         self.websocket = Some(ws_stream);
         self.connected = true;
@@ -89,14 +89,10 @@ impl WebSocketTransport {
             return Err(IFlowError::NotConnected);
         }
 
-        let ws_stream = self
-            .websocket
-            .as_mut()
-            .ok_or(IFlowError::NotConnected)?;
+        let ws_stream = self.websocket.as_mut().ok_or(IFlowError::NotConnected)?;
 
         // Serialize message to JSON string
-        let data = serde_json::to_string(message)
-            .map_err(|e| IFlowError::JsonParse(e))?;
+        let data = serde_json::to_string(message).map_err(|e| IFlowError::JsonParse(e))?;
 
         // Send the message
         ws_stream
@@ -129,10 +125,7 @@ impl WebSocketTransport {
             return Err(IFlowError::NotConnected);
         }
 
-        let ws_stream = self
-            .websocket
-            .as_mut()
-            .ok_or(IFlowError::NotConnected)?;
+        let ws_stream = self.websocket.as_mut().ok_or(IFlowError::NotConnected)?;
 
         // Send the message
         ws_stream
@@ -164,10 +157,7 @@ impl WebSocketTransport {
             return Err(IFlowError::NotConnected);
         }
 
-        let ws_stream = self
-            .websocket
-            .as_mut()
-            .ok_or(IFlowError::NotConnected)?;
+        let ws_stream = self.websocket.as_mut().ok_or(IFlowError::NotConnected)?;
 
         // Receive the next message with proper error handling
         loop {
@@ -176,7 +166,10 @@ impl WebSocketTransport {
                 Some(Err(e)) => {
                     tracing::error!("WebSocket error: {}", e);
                     self.connected = false;
-                    return Err(IFlowError::Transport(format!("Failed to receive message: {}", e)));
+                    return Err(IFlowError::Transport(format!(
+                        "Failed to receive message: {}",
+                        e
+                    )));
                 }
                 None => {
                     tracing::info!("WebSocket connection closed");
@@ -188,7 +181,9 @@ impl WebSocketTransport {
             match msg {
                 Message::Text(text) => {
                     // Clean up the text - remove any non-printable characters at the beginning
-                    let cleaned_text = text.trim_start_matches(|c: char| !c.is_ascii() || c.is_control() && c != '\n' && c != '\r' && c != '\t');
+                    let cleaned_text = text.trim_start_matches(|c: char| {
+                        !c.is_ascii() || c.is_control() && c != '\n' && c != '\r' && c != '\t'
+                    });
                     tracing::debug!(
                         "Received message: {}",
                         if cleaned_text.len() > 200 {
@@ -226,7 +221,9 @@ impl WebSocketTransport {
                 Message::Close(close_frame) => {
                     tracing::info!("Received close frame: {:?}", close_frame);
                     self.connected = false;
-                    return Err(IFlowError::Connection("Connection closed by server".to_string()));
+                    return Err(IFlowError::Connection(
+                        "Connection closed by server".to_string(),
+                    ));
                 }
                 Message::Frame(_) => {
                     tracing::debug!("Received raw frame, ignoring");
@@ -256,7 +253,7 @@ impl WebSocketTransport {
     pub fn is_connected(&self) -> bool {
         self.connected
     }
-    
+
     /// Get the WebSocket URL
     ///
     /// # Returns

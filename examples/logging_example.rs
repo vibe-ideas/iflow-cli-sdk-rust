@@ -1,7 +1,7 @@
 //! Logging example - Record raw iflow messages (Debug format)
 
-use iflow_cli_sdk_rust::{LoggerConfig, Message, MessageLogger};
 use iflow_cli_sdk_rust::types::{PlanEntry, PlanPriority, PlanStatus};
+use iflow_cli_sdk_rust::{LoggerConfig, Message, MessageLogger};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
