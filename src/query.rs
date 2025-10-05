@@ -61,6 +61,10 @@ pub async fn query(prompt: &str) -> Result<String> {
 pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<String> {
     // Apply timeout to the entire operation
     let timeout_secs = options.timeout;
+    // Use a fraction of the total timeout for individual message reception
+    // This ensures we don't block indefinitely on any single message
+    let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
+    
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
         local
@@ -82,7 +86,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                 // The send_message function sends a TaskFinish message when the prompt is complete
                 let mut prompt_finished = false;
                 while !prompt_finished {
-                    match timeout(Duration::from_secs_f64(1.0), message_stream.next()).await {
+                    match timeout(Duration::from_secs_f64(message_timeout_secs), message_stream.next()).await {
                         Ok(Some(message)) => {
                             tracing::info!("Received message: {:?}", message);
                             match message {
@@ -144,6 +148,10 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
 /// ```
 pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<String> {
     // Apply timeout to the entire operation
+    // Use a fraction of the total timeout for individual message reception
+    // This ensures we don't block indefinitely on any single message
+    let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
+    
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
         local
@@ -174,7 +182,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                 // The send_message function sends a TaskFinish message when the prompt is complete
                 let mut prompt_finished = false;
                 while !prompt_finished {
-                    match timeout(Duration::from_secs_f64(1.0), message_stream.next()).await {
+                    match timeout(Duration::from_secs_f64(message_timeout_secs), message_stream.next()).await {
                         Ok(Some(message)) => {
                             tracing::info!("Received message: {:?}", message);
                             match message {
