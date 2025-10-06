@@ -424,6 +424,8 @@ pub struct ProcessConfig {
     pub auto_start: bool,
     /// Port to start the iFlow process on (only used in auto-start WebSocket mode)
     pub start_port: Option<u16>,
+    /// Whether to start the iFlow process in debug mode
+    pub debug: bool,
 }
 
 impl Default for ProcessConfig {
@@ -431,6 +433,7 @@ impl Default for ProcessConfig {
         Self {
             auto_start: true,
             start_port: None, // No port needed for stdio mode
+            debug: false,
         }
     }
 }
@@ -453,6 +456,12 @@ impl ProcessConfig {
         self
     }
 
+    /// Set whether to start the iFlow process in debug mode
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
     /// Disable process auto-start
     pub fn manual_start(self) -> Self {
         self.auto_start(false)
@@ -461,6 +470,11 @@ impl ProcessConfig {
     /// Enable process auto-start
     pub fn enable_auto_start(self) -> Self {
         self.auto_start(true)
+    }
+
+    /// Enable debug mode
+    pub fn enable_debug(self) -> Self {
+        self.debug(true)
     }
 
     /// Configure for stdio mode (no port needed)

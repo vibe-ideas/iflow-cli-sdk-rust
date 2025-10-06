@@ -348,7 +348,7 @@ impl IFlowClient {
         let mut process_manager = if self.options.process.auto_start {
             // For stdio mode, we don't need a port
             let port = self.options.process.start_port.unwrap_or(8090);
-            let mut pm = IFlowProcessManager::new(port);
+            let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
             let _url = pm.start(false).await?; // false for stdio
             debug!("iFlow process started");
             Some(pm)
@@ -458,7 +458,7 @@ impl IFlowClient {
                                 debug!(
                                     "iFlow not running on port {}, starting process", port
                                 );
-                                let mut pm = IFlowProcessManager::new(port);
+                                let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
                                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                                     IFlowError::Connection(
                                         "Failed to start iFlow with WebSocket".to_string(),
@@ -482,7 +482,7 @@ impl IFlowClient {
                 // URL is None, auto-generate it by starting iFlow process
                 debug!("iFlow auto-start enabled with auto-generated URL...");
                 let port = self.options.process.start_port.unwrap_or(8090);
-                let mut pm = IFlowProcessManager::new(port);
+                let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                     IFlowError::Connection("Failed to start iFlow with WebSocket".to_string())
                 })?;

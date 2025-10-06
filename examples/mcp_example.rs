@@ -38,6 +38,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Create options with MCP server configuration
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
+            .with_process_config(
+                    iflow_cli_sdk_rust::types::ProcessConfig::new()
+                        .enable_auto_start()
+                        .start_port(8090)
+                        .enable_debug(), // Enable debug mode
+            )
             .with_logging_config(iflow_cli_sdk_rust::types::LoggingConfig {
                     enabled: true,
                     level: "INFO".to_string(),
