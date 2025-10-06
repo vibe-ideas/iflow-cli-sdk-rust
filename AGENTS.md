@@ -70,7 +70,7 @@ cargo run --example logging_example
 ### Running with logging
 
 ```bash
-RUST_LOG=info cargo run --example basic_client
+RUST_LOG=debug cargo run --example basic_client
 ```
 
 ## Development Conventions

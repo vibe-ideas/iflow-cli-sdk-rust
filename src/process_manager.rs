@@ -100,7 +100,7 @@ impl IFlowProcessManager {
     /// * `Err(IFlowError)` if there was an error starting the process
     pub async fn start(&mut self, use_websocket: bool) -> Result<Option<String>> {
         if use_websocket {
-            tracing::info!("Starting iFlow process with experimental ACP and WebSocket support");
+            tracing::debug!("Starting iFlow process with experimental ACP and WebSocket support");
 
             // Find an available port
             let port = Self::find_available_port(self.start_port, 100)?;
@@ -123,7 +123,7 @@ impl IFlowProcessManager {
             self.process = Some(child);
 
             // Wait longer for process to start and WebSocket server to be ready
-            tracing::info!("Waiting for iFlow process to start...");
+            tracing::debug!("Waiting for iFlow process to start...");
             sleep(Duration::from_secs(8)).await;
 
             // Verify the port is actually listening with more retries and longer timeout
@@ -132,17 +132,17 @@ impl IFlowProcessManager {
 
             while attempts < max_attempts {
                 if Self::is_port_listening(port) {
-                    tracing::info!("iFlow WebSocket server is ready on port {}", port);
+                    tracing::debug!("iFlow WebSocket server is ready on port {}", port);
                     break;
                 }
 
                 attempts += 1;
                 if attempts % 5 == 0 {
-                    tracing::info!(
-                        "Still waiting for iFlow to be ready... (attempt {}/{})",
-                        attempts,
-                        max_attempts
-                    );
+                    tracing::debug!(
+                "Still waiting for iFlow to be ready... (attempt {}/{})",
+                attempts,
+                max_attempts
+            );
                 }
 
                 sleep(Duration::from_secs(1)).await;
@@ -155,15 +155,15 @@ impl IFlowProcessManager {
                 )));
             }
 
-            tracing::info!(
-                "iFlow process started with WebSocket support on port {}",
-                port
-            );
+            tracing::debug!(
+            "iFlow process started with WebSocket support on port {}",
+            port
+        );
 
             // Return the WebSocket URL with peer parameter
             Ok(Some(format!("ws://localhost:{}/acp?peer=iflow", port)))
         } else {
-            tracing::info!("Starting iFlow process with experimental ACP and stdio support");
+            tracing::debug!("Starting iFlow process with experimental ACP and stdio support");
 
             // Start iFlow process with stdio support
             let mut cmd = tokio::process::Command::new("iflow");
@@ -172,7 +172,7 @@ impl IFlowProcessManager {
             cmd.stderr(Stdio::piped());
             cmd.stdin(Stdio::piped()); // stdin needed for stdio
 
-            tracing::info!("Starting iFlow process with command: {:?}", cmd);
+            tracing::debug!("Starting iFlow process with command: {:?}", cmd);
 
             let child = cmd
                 .spawn()
@@ -181,11 +181,11 @@ impl IFlowProcessManager {
             self.process = Some(child);
 
             // Wait for process to start
-            tracing::info!("Waiting for iFlow process to start...");
+            tracing::debug!("Waiting for iFlow process to start...");
             sleep(Duration::from_secs(5)).await;
-            tracing::info!("iFlow process should be started by now");
+            tracing::debug!("iFlow process should be started by now");
 
-            tracing::info!("iFlow process started with stdio support");
+            tracing::debug!("iFlow process started with stdio support");
 
             // No WebSocket URL for stdio
             Ok(None)
@@ -201,14 +201,14 @@ impl IFlowProcessManager {
     /// * `Err(IFlowError)` if there was an error stopping the process
     pub async fn stop(&mut self) -> Result<()> {
         if let Some(mut process) = self.process.take() {
-            tracing::info!("Stopping iFlow process");
+            tracing::debug!("Stopping iFlow process");
 
             // Try graceful shutdown first
             match tokio::time::timeout(Duration::from_secs(5), process.kill()).await {
                 Ok(Ok(_)) => {
                     // Wait for the process to actually exit with a timeout
                     match tokio::time::timeout(Duration::from_secs(5), process.wait()).await {
-                        Ok(Ok(_)) => tracing::info!("iFlow process stopped gracefully"),
+                        Ok(Ok(_)) => tracing::debug!("iFlow process stopped gracefully"),
                         Ok(Err(e)) => tracing::warn!("Error waiting for iFlow process: {}", e),
                         Err(_) => {
                             tracing::warn!(
@@ -232,7 +232,7 @@ impl IFlowProcessManager {
             // Add a small delay to ensure all resources are released
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-            tracing::info!("iFlow process stopped");
+            tracing::debug!("iFlow process stopped");
         }
 
         // Clear the port when stopping

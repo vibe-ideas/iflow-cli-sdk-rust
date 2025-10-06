@@ -4,8 +4,10 @@ use iflow_cli_sdk_rust::{IFlowOptions, query_with_config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt().with_env_filter("info").init();
+    // Initialize logging with environment variable support
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     println!("🚀 Starting query with config example...");
 
