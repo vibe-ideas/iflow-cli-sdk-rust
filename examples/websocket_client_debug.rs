@@ -23,9 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Configure MCP servers for extended capabilities
         let mcp_servers = vec![
             McpServer::Stdio {
-                name: "deepwiki".to_string(),
+                name: "sequential-thinking".to_string(),
                 command: PathBuf::from("npx"),
-                args: vec!["-y".to_string(), "mcp-deepwiki@latest".to_string()],
+                args: vec!["-y".to_string(), "@iflow-mcp/server-sequential-thinking@0.6.2".to_string()],
                 env: vec![
                     EnvVariable {
                         name: "DEBUG".to_string(),
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             // Send a message
-            let prompt = "deepwiki mcp server fetch how can i create new blocks in shadcn?";
+            let prompt = "use sequential-thinking mcp server to understand how X works";
             println!("📤 Sending: {}", prompt);
             client.send_message(prompt, None).await?;
 
