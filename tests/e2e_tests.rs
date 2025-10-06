@@ -5,18 +5,21 @@ use std::process::Command;
 
 /// Test the basic_client example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_basic_client() {
     run_example_test("basic_client");
 }
 
 /// Test the explore_api example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_explore_api() {
     run_example_test("explore_api");
 }
 
 /// Test the logging_example example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_logging_example() {
     // Clean up previous log files
     let _ = fs::remove_file("logs/iflow_messages.log");
@@ -33,36 +36,42 @@ fn test_logging_example() {
 
 /// Test the permission_modes example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_permission_modes() {
     run_example_test("permission_modes");
 }
 
 /// Test the query example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_query() {
     run_example_test("query");
 }
 
 /// Test the query_with_config example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_query_with_config() {
     run_example_test("query_with_config");
 }
 
 /// Test the test_realtime example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_test_realtime() {
     run_example_test("test_realtime");
 }
 
 /// Test the test_response example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_test_response() {
     run_example_test("test_response");
 }
 
 /// Test the test_stream example
 #[test]
+#[ignore = "e2e test - run explicitly with --ignored"]
 fn test_test_stream() {
     run_example_test("test_stream");
 }
