@@ -70,7 +70,8 @@ pub use query::{
     query, query_stream, query_stream_with_config, query_stream_with_timeout, query_with_config,
     query_with_timeout,
 };
-pub use types::{IFlowOptions, Message};
+pub use types::{IFlowOptions, Message, PermissionMode, ToolCallStatus, PlanPriority, PlanStatus, 
+    PlanEntry, UserMessageChunk, UserMessage, ProcessConfig, WebSocketConfig};
 
 // Re-export types from agent-client-protocol that we actually use
 pub use agent_client_protocol::{EnvVariable, McpServer, SessionId, StopReason};
