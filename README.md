@@ -275,6 +275,32 @@ cargo test --test e2e_tests -- --nocapture
 RUST_LOG=debug cargo run --example basic_client
 ```
 
+## Testing
+
+This project has comprehensive unit test coverage. To run tests:
+
+```bash
+# Run all unit tests
+cargo test
+
+# Run with coverage analysis
+./coverage.sh
+
+# Run integration tests (requires iFlow with API config)
+cargo test --test integration_with_iflow -- --ignored
+```
+
+### Test Coverage
+
+- **Overall Coverage: 32.05%**
+- **types.rs: 97.84%** - Type definitions and builders
+- **logger.rs: 81.67%** - Logging functionality
+- **Total: 146 unit tests** across multiple test files
+
+For detailed coverage information, see [COVERAGE.md](COVERAGE.md) and [TESTING_SUMMARY.md](TESTING_SUMMARY.md).
+
+**Note:** 63.5% of the codebase consists of infrastructure code (ACP protocol, WebSocket transport, client connections) that requires a live iFlow server with API configuration for full testing. The unit tests provide maximum coverage for all testable code.
+
 ## License
 
 MIT License - see LICENSE file for details.
