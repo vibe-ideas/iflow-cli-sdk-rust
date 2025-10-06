@@ -269,6 +269,33 @@ cargo test --test websocket_integration_tests
 cargo test --test e2e_tests -- --nocapture
 ```
 
+### Code Coverage
+
+The project uses `cargo-llvm-cov` to measure test coverage. To generate a coverage report:
+
+```bash
+# Install cargo-llvm-cov
+cargo install cargo-llvm-cov
+
+# Generate coverage report
+cargo llvm-cov --all-features --workspace
+
+# Generate HTML coverage report
+cargo llvm-cov --all-features --workspace --html
+open target/llvm-cov/html/index.html
+
+# Or use the provided script
+./scripts/coverage.sh
+```
+
+Current coverage target: **75% line coverage**
+
+**Note**: E2E tests are marked as ignored during normal test runs to prevent hanging. To run them explicitly:
+
+```bash
+cargo test --test e2e_tests -- --ignored
+```
+
 ### Running with logging
 
 ```bash
