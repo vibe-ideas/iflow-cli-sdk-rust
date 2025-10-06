@@ -49,5 +49,5 @@ jobs:
         cat > ~/.iflow/settings.json <<'EOF'
         ${{ secrets.IFLOW_SETTINGS_JSON }}
         EOF
-        cargo test --test e2e_tests -- --nocapture
-        cargo run --example websocket_client
+        RUST_LOG=debug cargo test --test e2e_tests -- --nocapture
+        RUST_LOG=debug cargo run --example websocket_client
