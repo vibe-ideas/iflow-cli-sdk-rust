@@ -1,19 +1,22 @@
-//! Simple query example using the convenience function
+//! Simple query example using the convenience function with custom configuration
 
-use iflow_cli_sdk_rust::query_with_timeout;
+use iflow_cli_sdk_rust::{IFlowOptions, query_with_config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt().with_env_filter("info").init();
 
-    println!("🚀 Starting simple query example...");
+    println!("🚀 Starting query with config example...");
 
-    // Simple query with custom timeout
+    // Query with custom timeout
     let prompt = "What is the capital of France? Please provide a brief answer.";
     println!("❓ Query: {}", prompt);
 
-    match query_with_timeout(prompt, 120.0).await {
+    // Create custom options with a 60-second timeout
+    let options = IFlowOptions::new().with_timeout(60.0);
+
+    match query_with_config(prompt, options).await {
         Ok(response) => {
             println!("💡 Answer: {}", response);
         }

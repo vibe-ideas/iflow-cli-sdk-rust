@@ -52,6 +52,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### Simple Query with Custom Configuration
+
+```rust
+use iflow_cli_sdk_rust::{query_with_config, IFlowOptions};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let options = IFlowOptions::new()
+        .with_timeout(60.0);  // 60 second timeout
+        
+    let response = query_with_config("What is 2 + 2?", options).await?;
+    println!("{}", response); // "4"
+    Ok(())
+}
+
 ### Interactive Session
 
 ```rust
@@ -108,6 +123,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### Streaming Responses with Custom Configuration
+
+```rust
+use iflow_cli_sdk_rust::{query_stream_with_config, IFlowOptions};
+use futures::stream::StreamExt;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let options = IFlowOptions::new()
+        .with_timeout(60.0);  // 60 second timeout
+        
+    let mut stream = query_stream_with_config("Tell me a story", options).await?;
+    
+    while let Some(chunk) = stream.next().await {
+        print!("{}", chunk);
+        std::io::stdout().flush()?;
+    }
+    
+    Ok(())
+}
+
 ## Configuration
 
 ### Client Options
@@ -121,9 +157,42 @@ let options = IFlowOptions::new()
     .with_auto_start_process(true);
 ```
 
-### Sandbox Mode
+### WebSocket Communication
 
-The SDK now uses stdio for communication with iFlow, so there's no need for WebSocket URLs. The `for_sandbox` method is no longer applicable.
+The SDK supports WebSocket communication with iFlow for better performance and reliability. To use WebSocket, specify the WebSocket configuration in the options:
+
+```rust
+use iflow_cli_sdk_rust::{IFlowOptions, types::WebSocketConfig};
+
+// Simple configuration with default reconnect settings
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::new("ws://localhost:8090/acp?peer=iflow".to_string()));
+
+// Or use the default configuration
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::default());
+
+// Or configure with custom reconnect settings
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::with_reconnect_settings(
+        "ws://localhost:8090/acp?peer=iflow".to_string(),
+        5,  // reconnect attempts
+        std::time::Duration::from_secs(10)  // reconnect interval
+    ));
+
+// In auto-start mode, you can omit the URL entirely
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::auto_start());
+
+// Or configure auto-start mode with custom reconnect settings
+let options = IFlowOptions::new()
+    .with_websocket_config(WebSocketConfig::auto_start_with_reconnect_settings(
+        5,  // reconnect attempts
+        std::time::Duration::from_secs(10)  // reconnect interval
+    ));
+```
+
+If you enable auto-start process with a WebSocket URL pointing to localhost, the SDK will automatically start the iFlow process if it's not already running. In auto-start mode, you can omit the URL entirely and let the SDK generate it automatically.
 
 ## Message Types
 
@@ -191,6 +260,10 @@ cargo build
 
 ```bash
 cargo test
+
+# Run specific test suites
+cargo test --test websocket_config_tests
+cargo test --test websocket_integration_tests
 
 # e2e tests
 cargo test --test e2e_tests -- --nocapture

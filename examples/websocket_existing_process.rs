@@ -1,37 +1,82 @@
-//! WebSocket client example showing bidirectional communication with iFlow
+//! WebSocket client example showing connection to an existing iFlow process
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
 use std::io::Write;
+use std::process::Command;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt().with_env_filter("info").init();
 
-    println!("🚀 Starting iFlow WebSocket client example...");
+    println!("🚀 Starting iFlow WebSocket client example for existing process...");
+
+    // Start an iFlow process manually
+    println!("🔧 Starting iFlow process manually...");
+    let mut iflow_process = Command::new("iflow")
+        .arg("--experimental-acp")
+        .arg("--port")
+        .arg("8093")
+        .spawn()
+        .expect("Failed to start iFlow process");
+
+    // Give the process a moment to start - poll until the port is listening
+    println!("⏳ Waiting for iFlow process to be ready...");
+    let mut attempts = 0;
+    let max_attempts = 30; // 30 attempts * 1 second = 30 seconds total
+
+    while attempts < max_attempts {
+        if std::net::TcpStream::connect_timeout(
+            &"127.0.0.1:8093".parse().unwrap(),
+            std::time::Duration::from_millis(100),
+        )
+        .is_ok()
+        {
+            println!("✅ iFlow WebSocket server is ready on port 8093");
+            break;
+        }
+
+        attempts += 1;
+        if attempts % 5 == 0 {
+            println!(
+                "⏳ Still waiting for iFlow to be ready... (attempt {}/{})",
+                attempts, max_attempts
+            );
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    if attempts >= max_attempts {
+        eprintln!(
+            "❌ iFlow process failed to start WebSocket server on port 8093 after {} seconds",
+            max_attempts
+        );
+        // Clean up the iFlow process
+        let _ = iflow_process.kill();
+        let _ = iflow_process.wait();
+        return Err("iFlow process failed to start".into());
+    }
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            // Configure client options with WebSocket configuration and custom timeout
+            // Configure client options to connect to the existing process
             let custom_timeout_secs = 120.0;
             let options = IFlowOptions::new()
-                .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
-                .with_timeout(custom_timeout_secs)
-                .with_process_config(
-                    iflow_cli_sdk_rust::types::ProcessConfig::new()
-                        .enable_auto_start()
-                        .start_port(8090),
-                );
+                .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::new(
+                    "ws://localhost:8093/acp?peer=iflow".to_string(),
+                ))
+                .with_timeout(custom_timeout_secs);
 
             // Create and connect client
             let mut client = IFlowClient::new(Some(options));
 
-            println!("🔗 Connecting to iFlow via WebSocket...");
+            println!("🔗 Connecting to existing iFlow process via WebSocket...");
             client.connect().await?;
-            println!("✅ Connected to iFlow via WebSocket");
+            println!("✅ Connected to existing iFlow process via WebSocket");
 
             // Receive and process responses
             println!("📥 Receiving responses...");
@@ -49,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
                         }
                         Message::ToolCall { id, name, status } => {
-                            println!("\n🔧 Tool call: {} ({}): {}", id, name, status);
+                            println!("\n🔧 Tool call: {} ({}) {}", id, name, status);
                         }
                         Message::Plan { entries } => {
                             println!("\n📋 Plan update received: {:?}", entries);
@@ -108,5 +153,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Ok::<(), Box<dyn std::error::Error>>(())
         })
-        .await
+        .await?;
+
+    // Clean up the iFlow process
+    println!("🧹 Cleaning up iFlow process...");
+    let _ = iflow_process.kill();
+    let _ = iflow_process.wait();
+
+    Ok(())
 }

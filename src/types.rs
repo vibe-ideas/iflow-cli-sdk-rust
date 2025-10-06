@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 // Import logger configuration
 use super::logger::LoggerConfig;
@@ -37,6 +38,32 @@ impl Default for PermissionMode {
     fn default() -> Self {
         PermissionMode::Auto
     }
+}
+
+/// Tool call status
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToolCallStatus {
+    /// The tool call is pending
+    #[serde(rename = "pending")]
+    Pending,
+    /// The tool call is in progress
+    #[serde(rename = "in_progress")]
+    InProgress,
+    /// The tool call has completed successfully
+    #[serde(rename = "completed")]
+    Completed,
+    /// The tool call has failed
+    #[serde(rename = "failed")]
+    Failed,
+    /// Legacy alias for InProgress
+    #[serde(rename = "running")]
+    Running,
+    /// Legacy alias for Completed
+    #[serde(rename = "finished")]
+    Finished,
+    /// Legacy alias for Failed
+    #[serde(rename = "error")]
+    Error,
 }
 
 /// Plan entry priority levels
@@ -256,7 +283,7 @@ pub struct ToolCallMessage {
     /// The icon of the tool call
     pub icon: Icon,
     /// The status of the tool call
-    pub status: String,
+    pub status: ToolCallStatus,
     /// The name of the tool (optional)
     #[serde(rename = "toolName")]
     pub tool_name: Option<String>,
@@ -285,7 +312,7 @@ impl ToolCallMessage {
     ///
     /// # Returns
     /// A new ToolCallMessage instance
-    pub fn new(id: String, label: String, icon: Icon, status: String) -> Self {
+    pub fn new(id: String, label: String, icon: Icon, status: ToolCallStatus) -> Self {
         Self {
             message_type: "tool_call".to_string(),
             id,
@@ -302,6 +329,168 @@ impl ToolCallMessage {
     }
 }
 
+/// Configuration for WebSocket connection
+#[derive(Debug, Clone)]
+pub struct WebSocketConfig {
+    /// WebSocket URL to connect to (None means auto-generate in auto-start mode)
+    pub url: Option<String>,
+    /// Number of reconnect attempts
+    pub reconnect_attempts: u32,
+    /// Interval between reconnect attempts
+    pub reconnect_interval: Duration,
+}
+
+impl Default for WebSocketConfig {
+    fn default() -> Self {
+        Self {
+            url: Some("ws://localhost:8090/acp?peer=iflow".to_string()),
+            reconnect_attempts: 3,
+            reconnect_interval: Duration::from_secs(5),
+        }
+    }
+}
+
+impl WebSocketConfig {
+    /// Create a new WebSocketConfig with the specified URL and default reconnect settings
+    pub fn new(url: String) -> Self {
+        Self {
+            url: Some(url),
+            ..Default::default()
+        }
+    }
+
+    /// Create a new WebSocketConfig for auto-start mode (URL will be auto-generated)
+    pub fn auto_start() -> Self {
+        Self {
+            url: None,
+            ..Default::default()
+        }
+    }
+
+    /// Create a new WebSocketConfig with custom reconnect settings
+    pub fn with_reconnect_settings(
+        url: String,
+        reconnect_attempts: u32,
+        reconnect_interval: Duration,
+    ) -> Self {
+        Self {
+            url: Some(url),
+            reconnect_attempts,
+            reconnect_interval,
+        }
+    }
+
+    /// Create a new WebSocketConfig for auto-start mode with custom reconnect settings
+    pub fn auto_start_with_reconnect_settings(
+        reconnect_attempts: u32,
+        reconnect_interval: Duration,
+    ) -> Self {
+        Self {
+            url: None,
+            reconnect_attempts,
+            reconnect_interval,
+        }
+    }
+}
+
+/// Configuration for file access
+#[derive(Debug, Clone)]
+pub struct FileAccessConfig {
+    /// Whether file access is enabled
+    pub enabled: bool,
+    /// Allowed directories for file access
+    pub allowed_dirs: Option<Vec<PathBuf>>,
+    /// Whether file access is read-only
+    pub read_only: bool,
+    /// Maximum file size for file access
+    pub max_size: u64,
+}
+
+impl Default for FileAccessConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            allowed_dirs: None,
+            read_only: false,
+            max_size: 10 * 1024 * 1024, // 10MB
+        }
+    }
+}
+
+/// Configuration for process management
+#[derive(Debug, Clone)]
+pub struct ProcessConfig {
+    /// Whether to automatically start the iFlow process
+    pub auto_start: bool,
+    /// Port to start the iFlow process on (only used in auto-start WebSocket mode)
+    pub start_port: Option<u16>,
+}
+
+impl Default for ProcessConfig {
+    fn default() -> Self {
+        Self {
+            auto_start: true,
+            start_port: None, // No port needed for stdio mode
+        }
+    }
+}
+
+impl ProcessConfig {
+    /// Create a new ProcessConfig with default values
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set whether to automatically start the iFlow process
+    pub fn auto_start(mut self, auto_start: bool) -> Self {
+        self.auto_start = auto_start;
+        self
+    }
+
+    /// Set the port to start the iFlow process on (only used in WebSocket mode)
+    pub fn start_port(mut self, port: u16) -> Self {
+        self.start_port = Some(port);
+        self
+    }
+
+    /// Disable process auto-start
+    pub fn manual_start(self) -> Self {
+        self.auto_start(false)
+    }
+
+    /// Enable process auto-start
+    pub fn enable_auto_start(self) -> Self {
+        self.auto_start(true)
+    }
+
+    /// Configure for stdio mode (no port needed)
+    pub fn stdio_mode(mut self) -> Self {
+        self.start_port = None;
+        self
+    }
+}
+
+/// Configuration for logging
+#[derive(Debug, Clone)]
+pub struct LoggingConfig {
+    /// Whether logging is enabled
+    pub enabled: bool,
+    /// Log level
+    pub level: String,
+    /// Logger configuration
+    pub logger_config: LoggerConfig,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            level: "INFO".to_string(),
+            logger_config: LoggerConfig::default(),
+        }
+    }
+}
+
 /// Configuration options for iFlow SDK
 ///
 /// This struct contains all the configuration options for the iFlow SDK,
@@ -314,28 +503,18 @@ pub struct IFlowOptions {
     pub mcp_servers: Vec<McpServer>,
     /// Request timeout in seconds
     pub timeout: f64,
-    /// Log level
-    pub log_level: String,
     /// Additional metadata to include in requests
     pub metadata: HashMap<String, serde_json::Value>,
-    /// Whether to allow file access
-    pub file_access: bool,
-    /// Allowed directories for file access
-    pub file_allowed_dirs: Option<Vec<PathBuf>>,
-    /// Whether file access is read-only
-    pub file_read_only: bool,
-    /// Maximum file size for file access
-    pub file_max_size: u64,
-    /// Whether to automatically start the iFlow process
-    pub auto_start_process: bool,
-    /// Port to start the iFlow process on (deprecated)
-    pub process_start_port: u16,
+    /// File access configuration
+    pub file_access: FileAccessConfig,
+    /// Process management configuration
+    pub process: ProcessConfig,
     /// Authentication method ID
     pub auth_method_id: Option<String>,
-    /// Logger configuration
-    pub log_config: LoggerConfig,
-    /// WebSocket URL for WebSocket connection (if None, use stdio)
-    pub websocket_url: Option<String>,
+    /// Logging configuration
+    pub logging: LoggingConfig,
+    /// WebSocket configuration (if None, use stdio)
+    pub websocket: Option<WebSocketConfig>,
     /// Permission mode for tool calls
     pub permission_mode: PermissionMode,
 }
@@ -345,18 +524,13 @@ impl Default for IFlowOptions {
         Self {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             mcp_servers: Vec::new(),
-            timeout: 30.0,
-            log_level: "INFO".to_string(),
+            timeout: 120.0,
             metadata: HashMap::new(),
-            file_access: false,
-            file_allowed_dirs: None,
-            file_read_only: false,
-            file_max_size: 10 * 1024 * 1024, // 10MB
-            auto_start_process: true,
-            process_start_port: 8090,
+            file_access: FileAccessConfig::default(),
+            process: ProcessConfig::default(),
             auth_method_id: None,
-            log_config: LoggerConfig::default(),
-            websocket_url: None,
+            logging: LoggingConfig::default(),
+            websocket: None,
             permission_mode: PermissionMode::Auto,
         }
     }
@@ -368,12 +542,13 @@ impl IFlowOptions {
         Self::default()
     }
 
-    /// Create options for sandbox mode (deprecated)
+    /// Set the current working directory
     ///
-    /// This method is deprecated as sandbox mode is no longer supported with stdio transport.
-    pub fn for_sandbox(_sandbox_url: &str) -> Self {
-        // Sandbox mode is no longer supported with stdio transport
-        Self::default()
+    /// # Arguments
+    /// * `cwd` - The current working directory
+    pub fn with_cwd(mut self, cwd: PathBuf) -> Self {
+        self.cwd = cwd;
+        self
     }
 
     /// Set the request timeout
@@ -385,66 +560,75 @@ impl IFlowOptions {
         self
     }
 
-    /// Set the current working directory
+    /// Set MCP servers to connect to
     ///
     /// # Arguments
-    /// * `cwd` - The current working directory
-    pub fn with_cwd(mut self, cwd: PathBuf) -> Self {
-        self.cwd = cwd;
+    /// * `servers` - The MCP servers to connect to
+    pub fn with_mcp_servers(mut self, servers: Vec<McpServer>) -> Self {
+        self.mcp_servers = servers;
         self
     }
 
-    /// Enable or disable file access
+    /// Set additional metadata to include in requests
     ///
     /// # Arguments
-    /// * `enabled` - Whether to enable file access
-    pub fn with_file_access(mut self, enabled: bool) -> Self {
-        self.file_access = enabled;
+    /// * `metadata` - The metadata to include
+    pub fn with_metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
+        self.metadata = metadata;
         self
     }
 
-    /// Enable or disable automatic process start
+    /// Set file access configuration
     ///
     /// # Arguments
-    /// * `enabled` - Whether to automatically start the iFlow process
-    pub fn with_auto_start_process(mut self, enabled: bool) -> Self {
-        self.auto_start_process = enabled;
+    /// * `config` - The file access configuration
+    pub fn with_file_access_config(mut self, config: FileAccessConfig) -> Self {
+        self.file_access = config;
         self
     }
 
-    /// Enable or disable logging
+    /// Set process management configuration
     ///
     /// # Arguments
-    /// * `enabled` - Whether to enable logging
-    pub fn with_logging(mut self, enabled: bool) -> Self {
-        self.log_config.enabled = enabled;
+    /// * `config` - The process management configuration
+    pub fn with_process_config(mut self, config: ProcessConfig) -> Self {
+        self.process = config;
         self
     }
 
-    /// Set log file path
+    /// Set auto start process
     ///
     /// # Arguments
-    /// * `path` - The path to the log file
-    pub fn with_log_file<P: Into<PathBuf>>(mut self, path: P) -> Self {
-        self.log_config.log_file = path.into();
+    /// * `auto_start` - Whether to automatically start the iFlow process
+    pub fn with_auto_start(mut self, auto_start: bool) -> Self {
+        self.process.auto_start = auto_start;
         self
     }
 
-    /// Set maximum log file size (bytes)
+    /// Set authentication method ID
     ///
     /// # Arguments
-    /// * `size` - Maximum log file size in bytes
-    pub fn with_max_log_size(mut self, size: u64) -> Self {
-        self.log_config.max_file_size = size;
+    /// * `method_id` - The authentication method ID
+    pub fn with_auth_method_id(mut self, method_id: String) -> Self {
+        self.auth_method_id = Some(method_id);
         self
     }
 
-    /// Set WebSocket URL for WebSocket connection
+    /// Set logging configuration
     ///
     /// # Arguments
-    /// * `url` - The WebSocket URL to connect to
-    pub fn with_websocket_url<S: Into<String>>(mut self, url: S) -> Self {
-        self.websocket_url = Some(url.into());
+    /// * `config` - The logging configuration
+    pub fn with_logging_config(mut self, config: LoggingConfig) -> Self {
+        self.logging = config;
+        self
+    }
+
+    /// Set WebSocket configuration
+    ///
+    /// # Arguments
+    /// * `config` - The WebSocket configuration
+    pub fn with_websocket_config(mut self, config: WebSocketConfig) -> Self {
+        self.websocket = Some(config);
         self
     }
 
@@ -496,7 +680,11 @@ impl ErrorMessageDetails {
     ///
     /// # Returns
     /// A new ErrorMessageDetails instance
-    pub fn with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+    pub fn with_details(
+        code: i32,
+        message: String,
+        details: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Self {
         Self {
             code,
             message,
@@ -538,8 +726,8 @@ pub enum Message {
 
     /// Error message
     #[serde(rename = "error")]
-    Error { 
-        code: i32, 
+    Error {
+        code: i32,
         message: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         details: Option<std::collections::HashMap<String, serde_json::Value>>,
@@ -569,7 +757,7 @@ impl Message {
             _ => None,
         }
     }
-    
+
     /// Create a new error message
     ///
     /// # Arguments
@@ -585,7 +773,7 @@ impl Message {
             details: None,
         }
     }
-    
+
     /// Create a new error message with details
     ///
     /// # Arguments
@@ -595,7 +783,11 @@ impl Message {
     ///
     /// # Returns
     /// A new Message::Error variant
-    pub fn error_with_details(code: i32, message: String, details: std::collections::HashMap<String, serde_json::Value>) -> Self {
+    pub fn error_with_details(
+        code: i32,
+        message: String,
+        details: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Self {
         Message::Error {
             code,
             message,

@@ -1,8 +1,8 @@
 //! Comprehensive tests for message types in iFlow SDK
 
 use iflow_cli_sdk_rust::types::{
-    PlanEntry, PlanPriority, PlanStatus, ToolCallMessage, Icon, UserMessage, UserMessageChunk,
-    ErrorMessageDetails, Message
+    ErrorMessageDetails, Icon, Message, PlanEntry, PlanPriority, PlanStatus, ToolCallMessage,
+    UserMessage, UserMessageChunk,
 };
 use std::path::PathBuf;
 
@@ -47,7 +47,7 @@ async fn test_plan_message_comprehensive() {
             content: "Task 2".to_string(),
             priority: PlanPriority::Medium,
             status: PlanStatus::InProgress,
-        }
+        },
     ];
 
     let plan_message = Message::Plan {
@@ -90,7 +90,7 @@ async fn test_tool_call_message_comprehensive() {
         "12345".to_string(),
         "File Reader".to_string(),
         icon.clone(),
-        "running".to_string(),
+        iflow_cli_sdk_rust::types::ToolCallStatus::Running,
     );
 
     assert_eq!(tool_call.message_type, "tool_call");
@@ -98,7 +98,10 @@ async fn test_tool_call_message_comprehensive() {
     assert_eq!(tool_call.label, "File Reader");
     assert_eq!(tool_call.icon.icon_type, "tool");
     assert_eq!(tool_call.icon.value, "gear");
-    assert_eq!(tool_call.status, "running");
+    assert_eq!(
+        tool_call.status,
+        iflow_cli_sdk_rust::types::ToolCallStatus::Running
+    );
     assert!(tool_call.tool_name.is_none());
     assert!(tool_call.content.is_none());
     assert!(tool_call.locations.is_none());
@@ -111,7 +114,10 @@ async fn test_tool_call_message_comprehensive() {
     tool_call_with_fields.tool_name = Some("read_file".to_string());
     tool_call_with_fields.agent_id = Some("agent_1".to_string());
 
-    assert_eq!(tool_call_with_fields.tool_name, Some("read_file".to_string()));
+    assert_eq!(
+        tool_call_with_fields.tool_name,
+        Some("read_file".to_string())
+    );
     assert_eq!(tool_call_with_fields.agent_id, Some("agent_1".to_string()));
 
     // Test ToolCallMessage in Message enum
@@ -171,7 +177,7 @@ async fn test_user_message_comprehensive() {
     let text_message = UserMessage::new_text("Hello, iFlow!".to_string());
     assert_eq!(text_message.message_type, "user");
     assert_eq!(text_message.chunks.len(), 1);
-    
+
     match &text_message.chunks[0] {
         UserMessageChunk::Text { content } => {
             assert_eq!(content, "Hello, iFlow!");
@@ -183,7 +189,7 @@ async fn test_user_message_comprehensive() {
     let path_message = UserMessage::new_path(PathBuf::from("/test/file.txt"));
     assert_eq!(path_message.message_type, "user");
     assert_eq!(path_message.chunks.len(), 1);
-    
+
     match &path_message.chunks[0] {
         UserMessageChunk::Path { path } => {
             assert_eq!(path, &PathBuf::from("/test/file.txt"));
@@ -203,14 +209,14 @@ async fn test_user_message_comprehensive() {
 
     assert_eq!(multi_chunk_message.message_type, "user");
     assert_eq!(multi_chunk_message.chunks.len(), 2);
-    
+
     match &multi_chunk_message.chunks[0] {
         UserMessageChunk::Text { content } => {
             assert_eq!(content, "Check this file: ");
         }
         _ => panic!("Expected Text chunk"),
     }
-    
+
     match &multi_chunk_message.chunks[1] {
         UserMessageChunk::Path { path } => {
             assert_eq!(path, &PathBuf::from("/test/file.txt"));
@@ -251,8 +257,14 @@ async fn test_error_message_comprehensive() {
 
     // Test ErrorMessageDetails::with_details method
     let mut details_map = std::collections::HashMap::new();
-    details_map.insert("path".to_string(), serde_json::Value::String("/test".to_string()));
-    details_map.insert("method".to_string(), serde_json::Value::String("GET".to_string()));
+    details_map.insert(
+        "path".to_string(),
+        serde_json::Value::String("/test".to_string()),
+    );
+    details_map.insert(
+        "method".to_string(),
+        serde_json::Value::String("GET".to_string()),
+    );
 
     let error_with_details = ErrorMessageDetails::with_details(
         500,
@@ -263,18 +275,28 @@ async fn test_error_message_comprehensive() {
     assert_eq!(error_with_details.code, 500);
     assert_eq!(error_with_details.message, "Internal Server Error");
     assert!(error_with_details.details.is_some());
-    
+
     if let Some(details) = &error_with_details.details {
         assert_eq!(details.len(), 2);
-        assert_eq!(details.get("path"), Some(&serde_json::Value::String("/test".to_string())));
-        assert_eq!(details.get("method"), Some(&serde_json::Value::String("GET".to_string())));
+        assert_eq!(
+            details.get("path"),
+            Some(&serde_json::Value::String("/test".to_string()))
+        );
+        assert_eq!(
+            details.get("method"),
+            Some(&serde_json::Value::String("GET".to_string()))
+        );
     }
 
     // Test Message::error method
     let error_message = Message::error(400, "Bad Request".to_string());
-    
+
     match &error_message {
-        Message::Error { code, message, details } => {
+        Message::Error {
+            code,
+            message,
+            details,
+        } => {
             assert_eq!(*code, 400);
             assert_eq!(message, "Bad Request");
             assert!(details.is_none());
@@ -290,15 +312,25 @@ async fn test_error_message_comprehensive() {
     );
 
     match &error_message_with_details {
-        Message::Error { code, message, details } => {
+        Message::Error {
+            code,
+            message,
+            details,
+        } => {
             assert_eq!(*code, 500);
             assert_eq!(message, "Internal Server Error");
             assert!(details.is_some());
-            
+
             if let Some(details) = details {
                 assert_eq!(details.len(), 2);
-                assert_eq!(details.get("path"), Some(&serde_json::Value::String("/test".to_string())));
-                assert_eq!(details.get("method"), Some(&serde_json::Value::String("GET".to_string())));
+                assert_eq!(
+                    details.get("path"),
+                    Some(&serde_json::Value::String("/test".to_string()))
+                );
+                assert_eq!(
+                    details.get("method"),
+                    Some(&serde_json::Value::String("GET".to_string()))
+                );
             }
         }
         _ => panic!("Expected Error message"),

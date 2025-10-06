@@ -16,10 +16,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            // Configure client options
-            let options = IFlowOptions::new()
-                .with_timeout(30.0)
-                .with_auto_start_process(true);
+            // Configure client options with auto-start enabled for stdio mode
+            let options = IFlowOptions::new().with_timeout(30.0).with_process_config(
+                iflow_cli_sdk_rust::types::ProcessConfig::new()
+                    .enable_auto_start()
+                    .stdio_mode(),
+            );
 
             let mut client = IFlowClient::new(Some(options));
 
@@ -59,7 +61,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("🏁 Task finished: {:?}", reason);
                             break;
                         }
-                        Message::Error { code, message, details: _ } => {
+                        Message::Error {
+                            code,
+                            message,
+                            details: _,
+                        } => {
                             println!("❌ Error {}: {}", code, message);
                             break;
                         }

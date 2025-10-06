@@ -13,7 +13,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-            let options = IFlowOptions::new().with_auto_start_process(true);
+            let options = IFlowOptions::new().with_process_config(
+                iflow_cli_sdk_rust::types::ProcessConfig::new()
+                    .enable_auto_start()
+                    .stdio_mode(),
+            );
 
             let mut client = IFlowClient::new(Some(options));
 
@@ -35,14 +39,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             while !finished {
                 // Use timeout for each message
-                match tokio::time::timeout(std::time::Duration::from_secs(30), message_stream.next()).await {
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(30),
+                    message_stream.next(),
+                )
+                .await
+                {
                     Ok(Some(message)) => {
                         message_count += 1;
                         let elapsed = start_time.elapsed();
 
                         match message {
                             Message::Assistant { content } => {
-                                println!("[{:.2}s] 💬 Assistant: {}", elapsed.as_secs_f32(), content);
+                                println!(
+                                    "[{:.2}s] 💬 Assistant: {}",
+                                    elapsed.as_secs_f32(),
+                                    content
+                                );
                             }
                             Message::ToolCall { id, name, status } => {
                                 println!(
@@ -64,8 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 );
                                 finished = true;
                             }
-                            Message::Error { code, message: msg, details: _ } => {
-                                println!("[{:.2}s] ❌ Error {}: {}", elapsed.as_secs_f32(), code, msg);
+                            Message::Error {
+                                code,
+                                message: msg,
+                                details: _,
+                            } => {
+                                println!(
+                                    "[{:.2}s] ❌ Error {}: {}",
+                                    elapsed.as_secs_f32(),
+                                    code,
+                                    msg
+                                );
                                 finished = true;
                             }
                             Message::User { content } => {

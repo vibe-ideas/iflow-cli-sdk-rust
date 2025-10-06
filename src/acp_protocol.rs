@@ -5,13 +5,13 @@
 //! and protocol flow.
 
 use crate::error::{IFlowError, Result};
-use crate::types::{Message, IFlowOptions, PermissionMode};
+use crate::types::{IFlowOptions, Message, PermissionMode};
 use crate::websocket_transport::WebSocketTransport;
 // Remove unused imports
-use tokio::sync::mpsc::UnboundedSender;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::time::Duration;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::timeout;
 use tracing::info;
 
@@ -45,7 +45,11 @@ impl ACPProtocol {
     /// * `transport` - WebSocket transport for communication
     /// * `message_sender` - Sender for messages to be processed by the client
     /// * `timeout_secs` - Timeout in seconds for protocol operations
-    pub fn new(transport: WebSocketTransport, message_sender: UnboundedSender<Message>, timeout_secs: f64) -> Self {
+    pub fn new(
+        transport: WebSocketTransport,
+        message_sender: UnboundedSender<Message>,
+        timeout_secs: f64,
+    ) -> Self {
         Self {
             transport,
             initialized: false,
@@ -116,13 +120,20 @@ impl ACPProtocol {
         info!("Waiting for //ready signal...");
         let ready_timeout = Duration::from_secs_f64(self.timeout_secs);
         let start_time = std::time::Instant::now();
-        
+
         loop {
             if start_time.elapsed() > ready_timeout {
-                return Err(IFlowError::Timeout("Timeout waiting for //ready signal".to_string()));
+                return Err(IFlowError::Timeout(
+                    "Timeout waiting for //ready signal".to_string(),
+                ));
             }
 
-            let msg = match timeout(Duration::from_secs_f64(self.timeout_secs.min(10.0)), self.transport.receive()).await {
+            let msg = match timeout(
+                Duration::from_secs_f64(self.timeout_secs.min(10.0)),
+                self.transport.receive(),
+            )
+            .await
+            {
                 Ok(Ok(msg)) => msg,
                 Ok(Err(e)) => {
                     tracing::error!("Transport error while waiting for //ready: {}", e);
@@ -146,7 +157,10 @@ impl ACPProtocol {
                 continue;
             } else if !trimmed_msg.is_empty() {
                 // Not a control message, continue waiting for //ready
-                tracing::debug!("Non-control message received while waiting for //ready: {}", trimmed_msg);
+                tracing::debug!(
+                    "Non-control message received while waiting for //ready: {}",
+                    trimmed_msg
+                );
                 continue;
             }
         }
@@ -181,7 +195,7 @@ impl ACPProtocol {
         // Send with retry logic
         let mut send_attempts = 0;
         let max_send_attempts = 3;
-        
+
         while send_attempts < max_send_attempts {
             match self.transport.send(&request).await {
                 Ok(_) => {
@@ -190,9 +204,16 @@ impl ACPProtocol {
                 }
                 Err(e) => {
                     send_attempts += 1;
-                    tracing::warn!("Failed to send initialize request (attempt {}): {}", send_attempts, e);
+                    tracing::warn!(
+                        "Failed to send initialize request (attempt {}): {}",
+                        send_attempts,
+                        e
+                    );
                     if send_attempts >= max_send_attempts {
-                        return Err(IFlowError::Protocol(format!("Failed to send initialize request after {} attempts: {}", max_send_attempts, e)));
+                        return Err(IFlowError::Protocol(format!(
+                            "Failed to send initialize request after {} attempts: {}",
+                            max_send_attempts, e
+                        )));
                     }
                     tokio::time::sleep(Duration::from_millis(500)).await;
                 }
@@ -203,18 +224,31 @@ impl ACPProtocol {
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
-            .map_err(|_| IFlowError::Timeout("Timeout waiting for initialize response".to_string()))?
+            .map_err(|_| {
+                IFlowError::Timeout("Timeout waiting for initialize response".to_string())
+            })?
             .map_err(|e| IFlowError::Protocol(format!("Failed to initialize: {}", e)))?;
 
         if let Some(result) = response.get("result") {
-            self.authenticated = result.get("isAuthenticated").and_then(|v| v.as_bool()).unwrap_or(false);
+            self.authenticated = result
+                .get("isAuthenticated")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             self.initialized = true;
-            info!("Initialized with protocol version: {:?}, authenticated: {}", 
-                  result.get("protocolVersion"), self.authenticated);
+            info!(
+                "Initialized with protocol version: {:?}, authenticated: {}",
+                result.get("protocolVersion"),
+                self.authenticated
+            );
         } else if let Some(error) = response.get("error") {
-            return Err(IFlowError::Protocol(format!("Initialize failed: {:?}", error)));
+            return Err(IFlowError::Protocol(format!(
+                "Initialize failed: {:?}",
+                error
+            )));
         } else {
-            return Err(IFlowError::Protocol("Invalid initialize response".to_string()));
+            return Err(IFlowError::Protocol(
+                "Invalid initialize response".to_string(),
+            ));
         }
 
         Ok(())
@@ -232,7 +266,11 @@ impl ACPProtocol {
     /// # Returns
     /// * `Ok(())` if authentication was successful
     /// * `Err(IFlowError)` if authentication failed
-    pub async fn authenticate(&mut self, method_id: &str, method_info: Option<HashMap<String, String>>) -> Result<()> {
+    pub async fn authenticate(
+        &mut self,
+        method_id: &str,
+        method_info: Option<HashMap<String, String>>,
+    ) -> Result<()> {
         if self.authenticated {
             info!("Already authenticated");
             return Ok(());
@@ -261,7 +299,9 @@ impl ACPProtocol {
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
-            .map_err(|_| IFlowError::Timeout("Timeout waiting for authentication response".to_string()))?
+            .map_err(|_| {
+                IFlowError::Timeout("Timeout waiting for authentication response".to_string())
+            })?
             .map_err(|e| IFlowError::Protocol(format!("Failed to authenticate: {}", e)))?;
 
         if let Some(result) = response.get("result") {
@@ -270,8 +310,11 @@ impl ACPProtocol {
                     self.authenticated = true;
                     info!("Authentication successful with method: {}", response_method);
                 } else {
-                    tracing::warn!("Unexpected methodId in response: {} (expected {})", 
-                                  response_method, method_id);
+                    tracing::warn!(
+                        "Unexpected methodId in response: {} (expected {})",
+                        response_method,
+                        method_id
+                    );
                     // Still mark as authenticated if we got a response
                     self.authenticated = true;
                 }
@@ -279,9 +322,14 @@ impl ACPProtocol {
                 self.authenticated = true;
             }
         } else if let Some(error) = response.get("error") {
-            return Err(IFlowError::Authentication(format!("Authentication failed: {:?}", error)));
+            return Err(IFlowError::Authentication(format!(
+                "Authentication failed: {:?}",
+                error
+            )));
         } else {
-            return Err(IFlowError::Protocol("Invalid authenticate response".to_string()));
+            return Err(IFlowError::Protocol(
+                "Invalid authenticate response".to_string(),
+            ));
         }
 
         Ok(())
@@ -297,11 +345,15 @@ impl ACPProtocol {
     /// * `Err(IFlowError)` if session creation failed
     pub async fn create_session(&mut self, cwd: &str) -> Result<String> {
         if !self.initialized {
-            return Err(IFlowError::Protocol("Protocol not initialized. Call initialize() first.".to_string()));
+            return Err(IFlowError::Protocol(
+                "Protocol not initialized. Call initialize() first.".to_string(),
+            ));
         }
 
         if !self.authenticated {
-            return Err(IFlowError::Protocol("Not authenticated. Call authenticate() first.".to_string()));
+            return Err(IFlowError::Protocol(
+                "Not authenticated. Call authenticate() first.".to_string(),
+            ));
         }
 
         let request_id = self.next_request_id();
@@ -324,7 +376,9 @@ impl ACPProtocol {
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
         let response = timeout(response_timeout, self.wait_for_response(request_id))
             .await
-            .map_err(|_| IFlowError::Timeout("Timeout waiting for session creation response".to_string()))?
+            .map_err(|_| {
+                IFlowError::Timeout("Timeout waiting for session creation response".to_string())
+            })?
             .map_err(|e| IFlowError::Protocol(format!("Failed to create session: {}", e)))?;
 
         if let Some(result) = response.get("result") {
@@ -332,13 +386,21 @@ impl ACPProtocol {
                 info!("Created session: {}", session_id);
                 Ok(session_id.to_string())
             } else {
-                info!("Invalid session/new response, using fallback ID: session_{}", request_id);
+                info!(
+                    "Invalid session/new response, using fallback ID: session_{}",
+                    request_id
+                );
                 Ok(format!("session_{}", request_id))
             }
         } else if let Some(error) = response.get("error") {
-            Err(IFlowError::Protocol(format!("session/new failed: {:?}", error)))
+            Err(IFlowError::Protocol(format!(
+                "session/new failed: {:?}",
+                error
+            )))
         } else {
-            Err(IFlowError::Protocol("Invalid session/new response".to_string()))
+            Err(IFlowError::Protocol(
+                "Invalid session/new response".to_string(),
+            ))
         }
     }
 
@@ -353,11 +415,15 @@ impl ACPProtocol {
     /// * `Err(IFlowError)` if sending failed
     pub async fn send_prompt(&mut self, session_id: &str, prompt: &str) -> Result<u32> {
         if !self.initialized {
-            return Err(IFlowError::Protocol("Protocol not initialized. Call initialize() first.".to_string()));
+            return Err(IFlowError::Protocol(
+                "Protocol not initialized. Call initialize() first.".to_string(),
+            ));
         }
 
         if !self.authenticated {
-            return Err(IFlowError::Protocol("Not authenticated. Call authenticate() first.".to_string()));
+            return Err(IFlowError::Protocol(
+                "Not authenticated. Call authenticate() first.".to_string(),
+            ));
         }
 
         let request_id = self.next_request_id();
@@ -366,7 +432,7 @@ impl ACPProtocol {
             "type": "text",
             "text": prompt
         })];
-        
+
         let params = json!({
             "sessionId": session_id,
             "prompt": prompt_blocks,
@@ -395,8 +461,8 @@ impl ACPProtocol {
         }
 
         // Send task finish message to indicate completion
-        let msg = Message::TaskFinish { 
-            reason: Some("completed".to_string()) 
+        let msg = Message::TaskFinish {
+            reason: Some("completed".to_string()),
         };
         let _ = self.message_sender.send(msg);
 
@@ -417,21 +483,32 @@ impl ACPProtocol {
 
         loop {
             if start_time.elapsed() > timeout_duration {
-                return Err(IFlowError::Timeout(format!("Timeout waiting for response to request {}", request_id)));
+                return Err(IFlowError::Timeout(format!(
+                    "Timeout waiting for response to request {}",
+                    request_id
+                )));
             }
 
-            let msg = match timeout(Duration::from_secs_f64(self.timeout_secs.min(5.0)), self.transport.receive()).await {
+            let msg = match timeout(
+                Duration::from_secs_f64(self.timeout_secs.min(5.0)),
+                self.transport.receive(),
+            )
+            .await
+            {
                 Ok(Ok(msg)) => msg,
                 Ok(Err(e)) => {
                     tracing::error!("Transport error while waiting for response: {}", e);
                     return Err(e);
                 }
                 Err(_) => {
-                    tracing::debug!("No message received, continuing to wait for response to request {}...", request_id);
+                    tracing::debug!(
+                        "No message received, continuing to wait for response to request {}...",
+                        request_id
+                    );
                     continue;
                 }
             };
-            
+
             // Skip control messages
             if msg.starts_with("//") {
                 tracing::debug!("Control message: {}", msg);
@@ -497,8 +574,11 @@ impl ACPProtocol {
         match method {
             "session/update" => {
                 if let Some(update_obj) = params.get("update").and_then(|v| v.as_object()) {
-                    if let Some(session_update) = update_obj.get("sessionUpdate").and_then(|v| v.as_str()) {
-                        self.handle_session_update(session_update, update_obj, request_id).await?;
+                    if let Some(session_update) =
+                        update_obj.get("sessionUpdate").and_then(|v| v.as_str())
+                    {
+                        self.handle_session_update(session_update, update_obj, request_id)
+                            .await?;
                     }
                 }
             }
@@ -535,18 +615,32 @@ impl ACPProtocol {
     /// # Returns
     /// * `Ok(())` if handling was successful
     /// * `Err(IFlowError)` if handling failed
-    async fn handle_permission_request(&mut self, params: Value, request_id: Option<u64>) -> Result<()> {
+    async fn handle_permission_request(
+        &mut self,
+        params: Value,
+        request_id: Option<u64>,
+    ) -> Result<()> {
         // Extract tool call information from params
         let tool_call = params.get("toolCall").unwrap_or(&Value::Null);
         let options = params.get("options").unwrap_or(&Value::Null);
         let _session_id = params.get("sessionId").and_then(|v| v.as_str());
-        
+
         // Log the tool call information
-        let tool_title = tool_call.get("title").and_then(|v| v.as_str()).unwrap_or("unknown");
-        let tool_type = tool_call.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
-        
-        tracing::info!("Permission request for tool '{}' (type: {})", tool_title, tool_type);
-        
+        let tool_title = tool_call
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let tool_type = tool_call
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        tracing::info!(
+            "Permission request for tool '{}' (type: {})",
+            tool_title,
+            tool_type
+        );
+
         // Determine response based on permission_mode
         let auto_approve = match self.permission_mode {
             PermissionMode::Auto => {
@@ -563,7 +657,7 @@ impl ACPProtocol {
                 tool_type == "read" || tool_type == "fetch" || tool_type == "list"
             }
         };
-        
+
         let response = if auto_approve {
             // Find the appropriate option from the provided options
             let mut selected_option = "proceed_once".to_string();
@@ -578,15 +672,17 @@ impl ACPProtocol {
                         }
                     }
                 }
-                
+
                 // Fallback to first option's optionId if no specific option found
                 if selected_option == "proceed_once" && !options_array.is_empty() {
-                    if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
+                    if let Some(first_option_id) =
+                        options_array[0].get("optionId").and_then(|v| v.as_str())
+                    {
                         selected_option = first_option_id.to_string();
                     }
                 }
             }
-            
+
             json!({
                 "outcome": {
                     "outcome": "selected",
@@ -612,7 +708,11 @@ impl ACPProtocol {
             self.transport.send(&response_message).await?;
         }
 
-        let outcome = response.get("outcome").and_then(|o| o.get("outcome")).and_then(|o| o.as_str()).unwrap_or("unknown");
+        let outcome = response
+            .get("outcome")
+            .and_then(|o| o.get("outcome"))
+            .and_then(|o| o.as_str())
+            .unwrap_or("unknown");
         tracing::info!("Permission request for tool '{}': {}", tool_title, outcome);
         Ok(())
     }
@@ -627,7 +727,12 @@ impl ACPProtocol {
     /// # Returns
     /// * `Ok(())` if handling was successful
     /// * `Err(IFlowError)` if handling failed
-    async fn handle_session_update(&mut self, update_type: &str, update: &serde_json::Map<String, Value>, request_id: Option<u64>) -> Result<()> {
+    async fn handle_session_update(
+        &mut self,
+        update_type: &str,
+        update: &serde_json::Map<String, Value>,
+        request_id: Option<u64>,
+    ) -> Result<()> {
         match update_type {
             "agent_message_chunk" => {
                 if let Some(content) = update.get("content") {
@@ -639,9 +744,9 @@ impl ACPProtocol {
                                 "<unknown>".to_string()
                             }
                         }
-                        _ => "<unknown>".to_string()
+                        _ => "<unknown>".to_string(),
                     };
-                    
+
                     let msg = Message::Assistant { content: text };
                     let _ = self.message_sender.send(msg);
                 }
@@ -656,45 +761,65 @@ impl ACPProtocol {
                                 "<unknown>".to_string()
                             }
                         }
-                        _ => "<unknown>".to_string()
+                        _ => "<unknown>".to_string(),
                     };
-                    
+
                     let msg = Message::User { content: text };
                     let _ = self.message_sender.send(msg);
                 }
             }
             "tool_call" => {
                 if let Some(tool_call) = update.get("toolCall") {
-                    let id = tool_call.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    let name = tool_call.get("title").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
-                    let status = tool_call.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                    
+                    let id = tool_call
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let name = tool_call
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown")
+                        .to_string();
+                    let status = tool_call
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+
                     let msg = Message::ToolCall { id, name, status };
                     let _ = self.message_sender.send(msg);
                 }
             }
             "plan" => {
                 if let Some(entries) = update.get("entries").and_then(|v| v.as_array()) {
-                    let entries: Vec<super::types::PlanEntry> = entries.iter()
+                    let entries: Vec<super::types::PlanEntry> = entries
+                        .iter()
                         .filter_map(|entry| {
-                            let content = entry.get("content").and_then(|v| v.as_str())?.to_string();
-                            let priority_str = entry.get("priority").and_then(|v| v.as_str()).unwrap_or("medium");
-                            let status_str = entry.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
-                            
+                            let content =
+                                entry.get("content").and_then(|v| v.as_str())?.to_string();
+                            let priority_str = entry
+                                .get("priority")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("medium");
+                            let status_str = entry
+                                .get("status")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("pending");
+
                             let priority = match priority_str {
                                 "high" => super::types::PlanPriority::High,
                                 "medium" => super::types::PlanPriority::Medium,
                                 "low" => super::types::PlanPriority::Low,
                                 _ => super::types::PlanPriority::Medium,
                             };
-                            
+
                             let status = match status_str {
                                 "pending" => super::types::PlanStatus::Pending,
                                 "in_progress" => super::types::PlanStatus::InProgress,
                                 "completed" => super::types::PlanStatus::Completed,
                                 _ => super::types::PlanStatus::Pending,
                             };
-                            
+
                             Some(super::types::PlanEntry {
                                 content,
                                 priority,
@@ -702,7 +827,7 @@ impl ACPProtocol {
                             })
                         })
                         .collect();
-                    
+
                     let msg = Message::Plan { entries };
                     let _ = self.message_sender.send(msg);
                 }

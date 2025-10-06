@@ -1,7 +1,7 @@
 //! E2E tests for iFlow CLI SDK examples
 
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 /// Test the basic_client example
 #[test]
@@ -21,11 +21,14 @@ fn test_logging_example() {
     // Clean up previous log files
     let _ = fs::remove_file("logs/iflow_messages.log");
     let _ = fs::remove_dir_all("logs");
-    
+
     run_example_test("logging_example");
-    
+
     // Check if log file was created
-    assert!(fs::metadata("logs/iflow_messages.log").is_ok(), "Log file should be created");
+    assert!(
+        fs::metadata("logs/iflow_messages.log").is_ok(),
+        "Log file should be created"
+    );
 }
 
 /// Test the permission_modes example
@@ -38,6 +41,12 @@ fn test_permission_modes() {
 #[test]
 fn test_query() {
     run_example_test("query");
+}
+
+/// Test the query_with_config example
+#[test]
+fn test_query_with_config() {
+    run_example_test("query_with_config");
 }
 
 /// Test the test_realtime example
@@ -77,7 +86,11 @@ fn run_example_test(example_name: &str) {
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Allow "Connection failed" messages as they're expected when iFlow CLI is not installed
         if !stderr.contains("Connection failed") {
-            panic!("Example {} failed with exit code: {:?}", example_name, output.status.code());
+            panic!(
+                "Example {} failed with exit code: {:?}",
+                example_name,
+                output.status.code()
+            );
         }
     }
 }
