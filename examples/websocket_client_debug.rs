@@ -23,9 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Configure MCP servers for extended capabilities
         let mcp_servers = vec![
             McpServer::Stdio {
-                name: "filesystem".to_string(),
-                command: PathBuf::from("mcp-server-filesystem"),
-                args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+                name: "deepwiki".to_string(),
+                command: PathBuf::from("npx"),
+                args: vec!["-y".to_string(), "mcp-deepwiki@latest".to_string()],
                 env: vec![
                     EnvVariable {
                         name: "DEBUG".to_string(),
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ];
 
             // Configure client options with WebSocket configuration and debug mode
-            let custom_timeout_secs = 120.0;
+            let custom_timeout_secs = 500.0;
             let options = IFlowOptions::new()
                 .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
                 .with_timeout(custom_timeout_secs)
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             // Send a message
-            let prompt = "use filesystem mcp server List files in the current directory, calc total font nums.";
+            let prompt = "deepwiki mcp server fetch how can i create new blocks in shadcn?";
             println!("📤 Sending: {}", prompt);
             client.send_message(prompt, None).await?;
 

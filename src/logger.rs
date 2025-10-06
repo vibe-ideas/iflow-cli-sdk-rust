@@ -182,7 +182,8 @@ impl MessageLogger {
     /// A formatted string representation of the message
     fn format_message(&self, message: &Message) -> String {
         // Output raw message structure using Debug format
-        format!("{:?}", message)
+        // Use alternate format to avoid truncation
+        format!("{:#?}", message)
     }
 
     /// Get current log file path
