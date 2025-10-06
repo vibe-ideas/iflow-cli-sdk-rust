@@ -2,7 +2,7 @@
 //! with debug mode enabled
 
 use futures::stream::StreamExt;
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
+use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message, McpServer, EnvVariable};
 use std::io::Write;
 
 #[tokio::main]
@@ -18,11 +18,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
+        use std::path::PathBuf;
+
+        // Configure MCP servers for extended capabilities
+        let mcp_servers = vec![
+            McpServer::Stdio {
+                name: "filesystem".to_string(),
+                command: PathBuf::from("mcp-server-filesystem"),
+                args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+                env: vec![
+                    EnvVariable {
+                        name: "DEBUG".to_string(),
+                        value: "1".to_string(),
+                        meta: None,
+                    }
+                ],
+            }
+        ];
+
             // Configure client options with WebSocket configuration and debug mode
             let custom_timeout_secs = 120.0;
             let options = IFlowOptions::new()
                 .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
                 .with_timeout(custom_timeout_secs)
+                .with_mcp_servers(mcp_servers)
                 .with_process_config(
                     iflow_cli_sdk_rust::types::ProcessConfig::new()
                         .enable_auto_start()
@@ -80,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             // Send a message
-            let prompt = "Create a plan to introduce this project.";
+            let prompt = "use filesystem mcp server List files in the current directory, calc total font nums.";
             println!("📤 Sending: {}", prompt);
             client.send_message(prompt, None).await?;
 

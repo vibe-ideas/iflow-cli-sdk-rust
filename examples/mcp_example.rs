@@ -20,20 +20,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         use std::path::PathBuf;
 
         // Configure MCP servers for extended capabilities
-    let mcp_servers = vec![
-        McpServer::Stdio {
-            name: "filesystem".to_string(),
-            command: PathBuf::from("mcp-server-filesystem"),
-            args: vec!["--allowed-dirs".to_string(), ".".to_string()],
-            env: vec![
-                EnvVariable {
-                    name: "DEBUG".to_string(),
-                    value: "1".to_string(),
-                    meta: None,
-                }
-            ],
-        }
-    ];
+        let mcp_servers = vec![
+            McpServer::Stdio {
+                name: "filesystem".to_string(),
+                command: PathBuf::from("mcp-server-filesystem"),
+                args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+                env: vec![
+                    EnvVariable {
+                        name: "DEBUG".to_string(),
+                        value: "1".to_string(),
+                        meta: None,
+                    }
+                ],
+            }
+        ];
         
         // Create options with MCP server configuration
         let options = IFlowOptions::new()

@@ -8,6 +8,7 @@ use crate::error::{IFlowError, Result};
 use crate::logger::MessageLogger;
 use crate::process_manager::IFlowProcessManager;
 use crate::types::*;
+use serde_json;
 use crate::websocket_transport::WebSocketTransport;
 use agent_client_protocol::{
     Agent, Client, ClientSideConnection, ContentBlock, SessionId, SessionUpdate,
@@ -749,7 +750,19 @@ impl IFlowClient {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."))
                 .to_string_lossy()
                 .to_string();
-            let new_session_id = protocol.create_session(&current_dir).await.map_err(|e| {
+            
+            // Convert McpServer objects to JSON-compatible format
+            let mcp_servers: Vec<serde_json::Value> = self.options
+                .mcp_servers
+                .iter()
+                .map(|server| {
+                    // Since McpServer is an enum, we need to serialize it directly
+                    // The agent-client-protocol crate handles the serialization
+                    serde_json::json!(server)
+                })
+                .collect();
+            
+            let new_session_id = protocol.create_session(&current_dir, mcp_servers).await.map_err(|e| {
                 tracing::error!("Failed to create session: {}", e);
                 e
             })?;
