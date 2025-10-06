@@ -288,13 +288,18 @@ open target/llvm-cov/html/index.html
 ./scripts/coverage.sh
 ```
 
-Current coverage target: **75% line coverage**
+**Current coverage**: 33.86% line coverage  
+**Target**: 75% line coverage
+
+See [COVERAGE.md](COVERAGE.md) for detailed analysis of coverage by module and limitations.
 
 **Note**: E2E tests are marked as ignored during normal test runs to prevent hanging. To run them explicitly:
 
 ```bash
 cargo test --test e2e_tests -- --ignored
 ```
+
+The project's architecture means most untested code requires integration with actual iFlow instances. Core modules (types, process_manager, logger) have >65% coverage, while connection-heavy modules (acp_protocol, query, client) require integration testing infrastructure to improve coverage beyond unit testing.
 
 ### Running with logging
 
