@@ -655,7 +655,7 @@ impl IFlowClient {
         if session_id.is_none() {
             tracing::debug!("Creating new session...");
             let session_request = agent_client_protocol::NewSessionRequest {
-                mcp_servers: Vec::new(),
+                mcp_servers: self.options.mcp_servers.clone(),
                 cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
                 meta: None,
             };

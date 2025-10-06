@@ -67,6 +67,20 @@ This example demonstrates:
 
 ## Advanced Features Examples
 
+### `mcp_example.rs`
+
+Demonstrates how to configure MCP servers for extended capabilities.
+
+```bash
+cargo run --example mcp_example
+```
+
+This example shows:
+
+- Configuring MCP servers with commands and environment variables
+- Using filesystem MCP server for directory listing
+- Handling MCP-related tool calls
+
 ### `permission_modes.rs`
 
 Demonstrates how to control tool call permissions.

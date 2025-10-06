@@ -182,7 +182,17 @@ impl ACPProtocol {
 
         // Add optional configurations from options
         if !options.mcp_servers.is_empty() {
-            params["mcpServers"] = json!([]);
+            // Convert McpServer objects to JSON-compatible format
+            let mcp_servers: Vec<serde_json::Value> = options
+                .mcp_servers
+                .iter()
+                .map(|server| {
+                    // Since McpServer is an enum, we need to serialize it directly
+                    // The agent-client-protocol crate handles the serialization
+                    json!(server)
+                })
+                .collect();
+            params["mcpServers"] = json!(mcp_servers);
         }
 
         let request = json!({
@@ -359,7 +369,7 @@ impl ACPProtocol {
         let request_id = self.next_request_id();
         let params = json!({
             "cwd": cwd,
-            "mcpServers": [],
+            "mcpServers": [], // MCP servers are configured at initialization time in ACP v1
         });
 
         let request = json!({
