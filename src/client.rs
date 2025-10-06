@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 // ChildStdin import moved to where it's used
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-use tracing::info;
+use tracing::debug;
 
 /// Connection type for iFlow client
 enum Connection {
@@ -342,7 +342,7 @@ impl IFlowClient {
 
     /// Connect to iFlow via stdio
     async fn connect_stdio(&mut self) -> Result<()> {
-        info!("Connecting to iFlow via stdio");
+        debug!("Connecting to iFlow via stdio");
 
         // Start iFlow process if auto_start is enabled
         let mut process_manager = if self.options.process.auto_start {
@@ -350,7 +350,7 @@ impl IFlowClient {
             let port = self.options.process.start_port.unwrap_or(8090);
             let mut pm = IFlowProcessManager::new(port);
             let _url = pm.start(false).await?; // false for stdio
-            info!("iFlow process started");
+            debug!("iFlow process started");
             Some(pm)
         } else {
             None
@@ -390,14 +390,14 @@ impl IFlowClient {
         });
 
         *self.connected.lock().await = true;
-        info!("Connected to iFlow via stdio");
+        debug!("Connected to iFlow via stdio");
 
         Ok(())
     }
 
     /// Connect to iFlow via WebSocket
     async fn connect_websocket(&mut self) -> Result<()> {
-        info!("Connecting to iFlow via WebSocket");
+        debug!("Connecting to iFlow via WebSocket");
 
         let websocket_config = self.options.websocket.as_ref().ok_or_else(|| {
             IFlowError::Connection("WebSocket configuration not provided".to_string())
@@ -412,7 +412,7 @@ impl IFlowClient {
             if let Some(url) = &websocket_config.url {
                 // If URL is provided, check if it's a local URL and try to connect first
                 if url.starts_with("ws://localhost:") {
-                    info!(
+                    debug!(
                         "iFlow auto-start enabled with provided URL, checking if iFlow is already running..."
                     );
 
@@ -423,7 +423,7 @@ impl IFlowClient {
                         Ok(_) => {
                             // Successfully connected to existing iFlow process
                             let _ = test_transport.close().await;
-                            info!("Connected to existing iFlow process at {}", url);
+                            debug!("Connected to existing iFlow process at {}", url);
                             url.clone()
                         }
                         Err(e) => {
@@ -443,11 +443,10 @@ impl IFlowClient {
                                 // 1. There's already another WebSocket connection to this iFlow instance
                                 // 2. Authentication or other protocol issues
                                 // 3. The iFlow instance is busy or not ready
-                                info!(
-                                    "iFlow appears to be running on port {}, but connection failed: {}",
-                                    port, e
-                                );
-                                info!(
+                                debug!(
+                            "iFlow appears to be running on port {}, but connection failed: {}", port, e
+                        );
+                                debug!(
                                     "Since iFlow is running on the specified port, we won't start a new process. Please check if the existing iFlow instance is configured correctly for WebSocket connections."
                                 );
                                 return Err(IFlowError::Connection(format!(
@@ -456,9 +455,8 @@ impl IFlowClient {
                                 )));
                             } else {
                                 // Port is not listening, iFlow is not running, start it
-                                info!(
-                                    "iFlow not running on port {}, starting process: {}",
-                                    port, e
+                                debug!(
+                                    "iFlow not running on port {}, starting process", port
                                 );
                                 let mut pm = IFlowProcessManager::new(port);
                                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
@@ -466,7 +464,7 @@ impl IFlowClient {
                                         "Failed to start iFlow with WebSocket".to_string(),
                                     )
                                 })?;
-                                info!("Started iFlow process at {}", iflow_url);
+                                debug!("Started iFlow process at {}", iflow_url);
 
                                 // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
                                 process_manager_to_keep = Some(pm);
@@ -477,18 +475,18 @@ impl IFlowClient {
                     }
                 } else {
                     // For non-local URLs, directly use the provided URL
-                    info!("Using manual start mode or non-local WebSocket URL");
+                    debug!("Using manual start mode or non-local WebSocket URL");
                     url.clone()
                 }
             } else {
                 // URL is None, auto-generate it by starting iFlow process
-                info!("iFlow auto-start enabled with auto-generated URL...");
+                debug!("iFlow auto-start enabled with auto-generated URL...");
                 let port = self.options.process.start_port.unwrap_or(8090);
                 let mut pm = IFlowProcessManager::new(port);
                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                     IFlowError::Connection("Failed to start iFlow with WebSocket".to_string())
                 })?;
-                info!("Started iFlow process at {}", iflow_url);
+                debug!("Started iFlow process at {}", iflow_url);
 
                 // Keep the process manager to avoid early handle drop causing child process exit due to stdout/stderr pipe issues
                 process_manager_to_keep = Some(pm);
@@ -502,7 +500,7 @@ impl IFlowClient {
                     "WebSocket URL must be provided in manual start mode".to_string(),
                 )
             })?;
-            info!("Using manual start mode with WebSocket URL: {}", url);
+            debug!("Using manual start mode with WebSocket URL: {}", url);
             url.clone()
         };
 
@@ -515,7 +513,7 @@ impl IFlowClient {
         while connect_attempts < websocket_config.reconnect_attempts {
             match transport.connect().await {
                 Ok(_) => {
-                    info!("Successfully connected to WebSocket at {}", final_url);
+                    debug!("Successfully connected to WebSocket at {}", final_url);
                     break;
                 }
                 Err(e) => {
@@ -534,7 +532,7 @@ impl IFlowClient {
                     }
 
                     // Wait before retrying
-                    tracing::info!(
+                    tracing::debug!(
                         "Waiting {:?} before retry...",
                         websocket_config.reconnect_interval
                     );
@@ -556,7 +554,7 @@ impl IFlowClient {
         });
 
         *self.connected.lock().await = true;
-        info!("Connected to iFlow via WebSocket");
+        debug!("Connected to iFlow via WebSocket");
 
         Ok(())
     }
@@ -635,11 +633,11 @@ impl IFlowClient {
         initialized: &mut bool,
         text: &str,
     ) -> Result<()> {
-        tracing::info!("send_message_stdio called with text: {}", text);
+        tracing::debug!("send_message_stdio called with text: {}", text);
 
         // Initialize the connection if not already done
         if !*initialized {
-            tracing::info!("Initializing connection...");
+            tracing::debug!("Initializing connection...");
             client
                 .initialize(agent_client_protocol::InitializeRequest {
                     protocol_version: agent_client_protocol::V1,
@@ -650,18 +648,18 @@ impl IFlowClient {
                 .map_err(|e| IFlowError::Connection(format!("Failed to initialize: {}", e)))?;
 
             *initialized = true;
-            info!("Initialized stdio connection");
+            debug!("Initialized stdio connection");
         }
 
         // Create a new session if we don't have one
         if session_id.is_none() {
-            tracing::info!("Creating new session...");
+            tracing::debug!("Creating new session...");
             let session_request = agent_client_protocol::NewSessionRequest {
                 mcp_servers: Vec::new(),
                 cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
                 meta: None,
             };
-            tracing::info!("Session request: {:?}", session_request);
+            tracing::debug!("Session request: {:?}", session_request);
 
             let session_response = client.new_session(session_request).await.map_err(|e| {
                 tracing::error!("Failed to create session: {}", e);
@@ -669,14 +667,14 @@ impl IFlowClient {
             })?;
 
             *session_id = Some(session_response.session_id);
-            info!("Created new session: {:?}", session_id);
+            debug!("Created new session: {:?}", session_id);
         }
 
         // Use the existing session
         let current_session_id = session_id.as_ref().unwrap();
 
         // Send the prompt and wait for completion
-        tracing::info!("Sending prompt to session: {:?}", current_session_id);
+        tracing::debug!("Sending prompt to session: {:?}", current_session_id);
         let prompt_response = client
             .prompt(agent_client_protocol::PromptRequest {
                 session_id: current_session_id.clone(),
@@ -695,10 +693,9 @@ impl IFlowClient {
                 IFlowError::Connection(format!("Failed to send message: {}", e))
             })?;
 
-        tracing::info!(
-            "Prompt response received, stop reason: {:?}",
-            prompt_response.stop_reason
-        );
+        tracing::debug!(
+                    "Prompt response received, stop reason: {:?}", prompt_response.stop_reason
+                );
 
         // Send task finish message with the actual stop reason
         let message = Message::TaskFinish {
@@ -710,7 +707,7 @@ impl IFlowClient {
             IFlowError::Connection("Message channel closed".to_string())
         })?;
 
-        info!("Sent message to iFlow via stdio: {}", text);
+        debug!("Sent message to iFlow via stdio: {}", text);
         Ok(())
     }
 
@@ -723,7 +720,7 @@ impl IFlowClient {
     ) -> Result<()> {
         // Initialize the protocol if not already done
         if !protocol.is_initialized() {
-            tracing::info!("Initializing WebSocket protocol...");
+            tracing::debug!("Initializing WebSocket protocol...");
             protocol.initialize(&self.options).await.map_err(|e| {
                 tracing::error!("Failed to initialize protocol: {}", e);
                 e
@@ -731,7 +728,7 @@ impl IFlowClient {
 
             // Authenticate if needed
             if !protocol.is_authenticated() {
-                tracing::info!("Authenticating...");
+                tracing::debug!("Authenticating...");
                 if let Some(method_id) = &self.options.auth_method_id {
                     protocol.authenticate(method_id, None).await.map_err(|e| {
                         tracing::error!("Authentication failed with method {}: {}", method_id, e);
@@ -747,7 +744,7 @@ impl IFlowClient {
             }
 
             // Create a new session
-            tracing::info!("Creating new session...");
+            tracing::debug!("Creating new session...");
             let current_dir = std::env::current_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("."))
                 .to_string_lossy()
@@ -757,7 +754,7 @@ impl IFlowClient {
                 e
             })?;
             *session_id = Some(new_session_id);
-            tracing::info!("Session created successfully");
+            tracing::debug!("Session created successfully");
         }
 
         // Make sure we have a session
@@ -766,7 +763,7 @@ impl IFlowClient {
             .ok_or_else(|| IFlowError::Connection("No session available".to_string()))?;
 
         // Send the prompt and get the request ID
-        tracing::info!("Sending prompt to session: {}", current_session_id);
+        tracing::debug!("Sending prompt to session: {}", current_session_id);
         let _request_id = protocol
             .send_prompt(current_session_id, text)
             .await
@@ -775,7 +772,7 @@ impl IFlowClient {
                 e
             })?;
 
-        info!("Sent message to iFlow: {}", text);
+        debug!("Sent message to iFlow: {}", text);
         Ok(())
     }
 
@@ -872,7 +869,7 @@ impl IFlowClient {
             }
         }
 
-        info!("Disconnected from iFlow");
+        debug!("Disconnected from iFlow");
         Ok(())
     }
 }

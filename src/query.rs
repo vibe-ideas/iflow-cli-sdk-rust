@@ -69,15 +69,15 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
         let local = tokio::task::LocalSet::new();
         local
             .run_until(async {
-                tracing::info!("Creating IFlowClient with custom options");
+                tracing::debug!("Creating IFlowClient with custom options");
                 let mut client = IFlowClient::new(Some(options));
-                tracing::info!("Connecting to iFlow...");
+                tracing::debug!("Connecting to iFlow...");
                 client.connect().await?;
-                tracing::info!("Connected to iFlow");
+                tracing::debug!("Connected to iFlow");
 
-                tracing::info!("Sending message: {}", prompt);
+                tracing::debug!("Sending message: {}", prompt);
                 client.send_message(prompt, None).await?;
-                tracing::info!("Message sent");
+                tracing::debug!("Message sent");
 
                 let mut response = String::new();
                 let mut message_stream = client.messages();
@@ -93,7 +93,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                     .await
                     {
                         Ok(Some(message)) => {
-                            tracing::info!("Received message: {:?}", message);
+                            tracing::debug!("Received message: {:?}", message);
                             match message {
                                 Message::Assistant { content } => {
                                     response.push_str(&content);
@@ -106,7 +106,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                         }
                         Ok(None) => {
                             // Stream ended
-                            tracing::info!("Message stream ended");
+                            tracing::debug!("Message stream ended");
                             prompt_finished = true;
                         }
                         Err(_) => {
@@ -116,7 +116,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
                         }
                     }
                 }
-                tracing::info!("Query completed, response length: {}", response.len());
+                tracing::debug!("Query completed, response length: {}", response.len());
 
                 client.disconnect().await?;
                 Ok(response.trim().to_string())
@@ -174,19 +174,19 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                             .enable_auto_start()
                             .stdio_mode(),
                     );
-                tracing::info!(
+                tracing::debug!(
                     "Creating IFlowClient with options: auto_start={}, start_port={:?}",
                     options.process.auto_start,
                     options.process.start_port
                 );
                 let mut client = IFlowClient::new(Some(options));
-                tracing::info!("Connecting to iFlow...");
+                tracing::debug!("Connecting to iFlow...");
                 client.connect().await?;
-                tracing::info!("Connected to iFlow");
+                tracing::debug!("Connected to iFlow");
 
-                tracing::info!("Sending message: {}", prompt);
+                tracing::debug!("Sending message: {}", prompt);
                 client.send_message(prompt, None).await?;
-                tracing::info!("Message sent");
+                tracing::debug!("Message sent");
 
                 let mut response = String::new();
                 let mut message_stream = client.messages();
@@ -202,7 +202,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                     .await
                     {
                         Ok(Some(message)) => {
-                            tracing::info!("Received message: {:?}", message);
+                            tracing::debug!("Received message: {:?}", message);
                             match message {
                                 Message::Assistant { content } => {
                                     response.push_str(&content);
@@ -215,7 +215,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                         }
                         Ok(None) => {
                             // Stream ended
-                            tracing::info!("Message stream ended");
+                            tracing::debug!("Message stream ended");
                             prompt_finished = true;
                         }
                         Err(_) => {
@@ -225,7 +225,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                         }
                     }
                 }
-                tracing::info!("Query completed, response length: {}", response.len());
+                tracing::debug!("Query completed, response length: {}", response.len());
 
                 client.disconnect().await?;
                 Ok(response.trim().to_string())

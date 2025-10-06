@@ -9,7 +9,7 @@ use futures::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::time::Duration;
 use tokio_tungstenite::{WebSocketStream, connect_async, tungstenite::protocol::Message};
-use tracing::info;
+use tracing::debug;
 use url::Url;
 
 /// WebSocket transport for iFlow communication
@@ -54,7 +54,7 @@ impl WebSocketTransport {
             return Ok(());
         }
 
-        info!("Connecting to {}", self.url);
+        debug!("Connecting to {}", self.url);
 
         // Parse URL to validate it
         let url = Url::parse(&self.url)
@@ -71,7 +71,7 @@ impl WebSocketTransport {
 
         self.websocket = Some(ws_stream);
         self.connected = true;
-        info!("Connected to {}", self.url);
+        debug!("Connected to {}", self.url);
 
         Ok(())
     }
@@ -172,7 +172,7 @@ impl WebSocketTransport {
                     )));
                 }
                 None => {
-                    tracing::info!("WebSocket connection closed");
+                    tracing::debug!("WebSocket connection closed");
                     self.connected = false;
                     return Err(IFlowError::Connection("Connection closed".to_string()));
                 }
@@ -219,7 +219,7 @@ impl WebSocketTransport {
                     continue;
                 }
                 Message::Close(close_frame) => {
-                    tracing::info!("Received close frame: {:?}", close_frame);
+                    tracing::debug!("Received close frame: {:?}", close_frame);
                     self.connected = false;
                     return Err(IFlowError::Connection(
                         "Connection closed by server".to_string(),
@@ -240,7 +240,7 @@ impl WebSocketTransport {
                 .close(None)
                 .await
                 .map_err(|e| IFlowError::Transport(format!("Error closing WebSocket: {}", e)))?;
-            info!("WebSocket connection closed");
+            debug!("WebSocket connection closed");
         }
         self.connected = false;
         Ok(())

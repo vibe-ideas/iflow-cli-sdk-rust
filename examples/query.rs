@@ -4,8 +4,10 @@ use iflow_cli_sdk_rust::query_with_timeout;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt().with_env_filter("info").init();
+    // Initialize logging with environment variable support
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     println!("🚀 Starting simple query example...");
 

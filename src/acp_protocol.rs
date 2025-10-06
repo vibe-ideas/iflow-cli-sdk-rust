@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::timeout;
-use tracing::info;
+use tracing::debug;
 
 /// ACP protocol handler for iFlow communication
 ///
@@ -114,10 +114,10 @@ impl ACPProtocol {
             return Ok(());
         }
 
-        info!("Initializing ACP protocol");
+        debug!("Initializing ACP protocol");
 
         // Wait for //ready signal with timeout and better error handling
-        info!("Waiting for //ready signal...");
+        debug!("Waiting for //ready signal...");
         let ready_timeout = Duration::from_secs_f64(self.timeout_secs);
         let start_time = std::time::Instant::now();
 
@@ -149,7 +149,7 @@ impl ACPProtocol {
 
             let trimmed_msg = msg.trim();
             if trimmed_msg == "//ready" {
-                info!("Received //ready signal");
+                debug!("Received //ready signal");
                 break;
             } else if trimmed_msg.starts_with("//") {
                 // Log other control messages
@@ -199,7 +199,7 @@ impl ACPProtocol {
         while send_attempts < max_send_attempts {
             match self.transport.send(&request).await {
                 Ok(_) => {
-                    info!("Sent initialize request (attempt {})", send_attempts + 1);
+                    debug!("Sent initialize request (attempt {})", send_attempts + 1);
                     break;
                 }
                 Err(e) => {
@@ -235,7 +235,7 @@ impl ACPProtocol {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             self.initialized = true;
-            info!(
+            debug!(
                 "Initialized with protocol version: {:?}, authenticated: {}",
                 result.get("protocolVersion"),
                 self.authenticated
@@ -272,7 +272,7 @@ impl ACPProtocol {
         method_info: Option<HashMap<String, String>>,
     ) -> Result<()> {
         if self.authenticated {
-            info!("Already authenticated");
+            debug!("Already authenticated");
             return Ok(());
         }
 
@@ -293,7 +293,7 @@ impl ACPProtocol {
         });
 
         self.transport.send(&request).await?;
-        info!("Sent authenticate request with method: {}", method_id);
+        debug!("Sent authenticate request with method: {}", method_id);
 
         // Wait for authentication response with timeout
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
@@ -308,7 +308,7 @@ impl ACPProtocol {
             if let Some(response_method) = result.get("methodId").and_then(|v| v.as_str()) {
                 if response_method == method_id {
                     self.authenticated = true;
-                    info!("Authentication successful with method: {}", response_method);
+                    debug!("Authentication successful with method: {}", response_method);
                 } else {
                     tracing::warn!(
                         "Unexpected methodId in response: {} (expected {})",
@@ -370,7 +370,7 @@ impl ACPProtocol {
         });
 
         self.transport.send(&request).await?;
-        info!("Sent session/new request with cwd: {}", cwd);
+        debug!("Sent session/new request with cwd: {}", cwd);
 
         // Wait for response with timeout
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
@@ -383,10 +383,10 @@ impl ACPProtocol {
 
         if let Some(result) = response.get("result") {
             if let Some(session_id) = result.get("sessionId").and_then(|v| v.as_str()) {
-                info!("Created session: {}", session_id);
+                debug!("Created session: {}", session_id);
                 Ok(session_id.to_string())
             } else {
-                info!(
+                debug!(
                     "Invalid session/new response, using fallback ID: session_{}",
                     request_id
                 );
@@ -446,7 +446,7 @@ impl ACPProtocol {
         });
 
         self.transport.send(&request).await?;
-        info!("Sent session/prompt");
+        debug!("Sent session/prompt");
 
         // Wait for response
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
@@ -635,7 +635,7 @@ impl ACPProtocol {
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
 
-        tracing::info!(
+        tracing::debug!(
             "Permission request for tool '{}' (type: {})",
             tool_title,
             tool_type
@@ -713,7 +713,7 @@ impl ACPProtocol {
             .and_then(|o| o.get("outcome"))
             .and_then(|o| o.as_str())
             .unwrap_or("unknown");
-        tracing::info!("Permission request for tool '{}': {}", tool_title, outcome);
+        tracing::debug!("Permission request for tool '{}': {}", tool_title, outcome);
         Ok(())
     }
 

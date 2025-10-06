@@ -7,8 +7,10 @@ use std::process::Command;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt().with_env_filter("info").init();
+    // Initialize logging with environment variable support
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     println!("🚀 Starting iFlow WebSocket client example for existing process...");
 
