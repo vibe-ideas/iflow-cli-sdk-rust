@@ -71,7 +71,7 @@ pub use query::{
     query_with_timeout,
 };
 pub use types::{IFlowOptions, Message, PermissionMode, ToolCallStatus, PlanPriority, PlanStatus, 
-    PlanEntry, UserMessageChunk, UserMessage, ProcessConfig, WebSocketConfig, LoggingConfig};
+    PlanEntry, UserMessageChunk, UserMessage, ProcessConfig, WebSocketConfig, LoggingConfig, FileAccessConfig};
 
 // Re-export types from agent-client-protocol that we actually use
 pub use agent_client_protocol::{EnvVariable, McpServer, SessionId, StopReason};
