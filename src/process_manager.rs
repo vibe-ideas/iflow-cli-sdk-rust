@@ -17,6 +17,7 @@ pub struct IFlowProcessManager {
     pub process: Option<Child>, // Made public for access in Drop
     start_port: u16,
     port: Option<u16>,
+    debug: bool,
 }
 
 impl IFlowProcessManager {
@@ -24,14 +25,16 @@ impl IFlowProcessManager {
     ///
     /// # Arguments
     /// * `start_port` - The port to start the process on
+    /// * `debug` - Whether to enable debug mode
     ///
     /// # Returns
     /// A new IFlowProcessManager instance
-    pub fn new(start_port: u16) -> Self {
+    pub fn new(start_port: u16, debug: bool) -> Self {
         Self {
             process: None,
             start_port,
             port: None,
+            debug,
         }
     }
 
@@ -111,6 +114,12 @@ impl IFlowProcessManager {
             cmd.arg("--experimental-acp");
             cmd.arg("--port");
             cmd.arg(port.to_string());
+            
+            // Add debug flag if enabled
+            if self.debug {
+                cmd.arg("--debug");
+            }
+            
             // In WebSocket mode, set stdout/stderr to inherit to avoid blocking/exit when pipes are not consumed
             cmd.stdout(Stdio::inherit());
             cmd.stderr(Stdio::inherit());
@@ -168,6 +177,12 @@ impl IFlowProcessManager {
             // Start iFlow process with stdio support
             let mut cmd = tokio::process::Command::new("iflow");
             cmd.arg("--experimental-acp");
+            
+            // Add debug flag if enabled
+            if self.debug {
+                cmd.arg("--debug");
+            }
+            
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
             cmd.stdin(Stdio::piped()); // stdin needed for stdio

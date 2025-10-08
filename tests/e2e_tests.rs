@@ -67,6 +67,18 @@ fn test_test_stream() {
     run_example_test("test_stream");
 }
 
+/// Test the mcp_example example
+#[test]
+fn test_mcp_example() {
+    run_example_test("mcp_example");
+}
+
+/// Test the websocket_mcp example
+#[test]
+fn test_websocket_mcp() {
+    run_example_test("websocket_mcp");
+}
+
 /// Helper function to run an example and check its execution
 fn run_example_test(example_name: &str) {
     let output = Command::new("cargo")

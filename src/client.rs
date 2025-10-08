@@ -8,6 +8,7 @@ use crate::error::{IFlowError, Result};
 use crate::logger::MessageLogger;
 use crate::process_manager::IFlowProcessManager;
 use crate::types::*;
+use serde_json;
 use crate::websocket_transport::WebSocketTransport;
 use agent_client_protocol::{
     Agent, Client, ClientSideConnection, ContentBlock, SessionId, SessionUpdate,
@@ -348,7 +349,7 @@ impl IFlowClient {
         let mut process_manager = if self.options.process.auto_start {
             // For stdio mode, we don't need a port
             let port = self.options.process.start_port.unwrap_or(8090);
-            let mut pm = IFlowProcessManager::new(port);
+            let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
             let _url = pm.start(false).await?; // false for stdio
             debug!("iFlow process started");
             Some(pm)
@@ -458,7 +459,7 @@ impl IFlowClient {
                                 debug!(
                                     "iFlow not running on port {}, starting process", port
                                 );
-                                let mut pm = IFlowProcessManager::new(port);
+                                let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
                                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                                     IFlowError::Connection(
                                         "Failed to start iFlow with WebSocket".to_string(),
@@ -482,7 +483,7 @@ impl IFlowClient {
                 // URL is None, auto-generate it by starting iFlow process
                 debug!("iFlow auto-start enabled with auto-generated URL...");
                 let port = self.options.process.start_port.unwrap_or(8090);
-                let mut pm = IFlowProcessManager::new(port);
+                let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                     IFlowError::Connection("Failed to start iFlow with WebSocket".to_string())
                 })?;
@@ -655,7 +656,7 @@ impl IFlowClient {
         if session_id.is_none() {
             tracing::debug!("Creating new session...");
             let session_request = agent_client_protocol::NewSessionRequest {
-                mcp_servers: Vec::new(),
+                mcp_servers: self.options.mcp_servers.clone(),
                 cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
                 meta: None,
             };
@@ -749,7 +750,19 @@ impl IFlowClient {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."))
                 .to_string_lossy()
                 .to_string();
-            let new_session_id = protocol.create_session(&current_dir).await.map_err(|e| {
+            
+            // Convert McpServer objects to JSON-compatible format
+            let mcp_servers: Vec<serde_json::Value> = self.options
+                .mcp_servers
+                .iter()
+                .map(|server| {
+                    // Since McpServer is an enum, we need to serialize it directly
+                    // The agent-client-protocol crate handles the serialization
+                    serde_json::json!(server)
+                })
+                .collect();
+            
+            let new_session_id = protocol.create_session(&current_dir, mcp_servers).await.map_err(|e| {
                 tracing::error!("Failed to create session: {}", e);
                 e
             })?;

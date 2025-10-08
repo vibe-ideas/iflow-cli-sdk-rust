@@ -10,7 +10,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_cleanup_on_drop() {
         {
-            let mut pm = IFlowProcessManager::new(8096);
+            let mut pm = IFlowProcessManager::new(8096, false);
             let result = pm.start(false).await;
 
             if result.is_ok() {
@@ -35,7 +35,7 @@ mod tests {
     /// Test that stop() properly terminates the process
     #[tokio::test]
     async fn test_stop_terminates_process() {
-        let mut pm = IFlowProcessManager::new(8097);
+        let mut pm = IFlowProcessManager::new(8097, false);
         let result = pm.start(false).await;
 
         if result.is_ok() {
@@ -63,7 +63,7 @@ mod tests {
     /// Test WebSocket process cleanup
     #[tokio::test]
     async fn test_websocket_process_cleanup() {
-        let mut pm = IFlowProcessManager::new(8098);
+        let mut pm = IFlowProcessManager::new(8098, false);
         let result = pm.start(true).await;
 
         if result.is_ok() {

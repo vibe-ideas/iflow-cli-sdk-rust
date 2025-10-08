@@ -72,6 +72,10 @@ path = "examples/websocket_client.rs"
 name = "permission_modes"
 path = "examples/permission_modes.rs"
 
+[[example]]
+name = "mcp_example"
+path = "examples/mcp_example.rs"
+
 [[test]]
 name = "message_tests"
 path = "tests/message_tests.rs"
