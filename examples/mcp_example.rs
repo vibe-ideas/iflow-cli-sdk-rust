@@ -5,6 +5,7 @@
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer};
+use iflow_cli_sdk_rust::error::IFlowError;
 use std::io::Write;
 
 #[tokio::main]
@@ -61,7 +62,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client.connect().await?;
 
         // Send a message that use MCP capabilities
-        client.send_message("use sequential-thinking mcp server List files in the current directory, calc total font nums", None).await?;
+        let prompt = "use sequential-thinking mcp server List files in the current directory, calc total font nums";
+        println!("📤 Sending: {}", prompt);
+        
+        // Handle the send_message result to catch timeout errors
+        match client.send_message(prompt, None).await {
+            Ok(()) => {
+                println!("✅ Message sent successfully");
+            }
+            Err(IFlowError::Timeout(msg)) => {
+                eprintln!("⏰ Timeout error occurred: {}", msg);
+                eprintln!("This may be due to MCP server startup time or processing delays.");
+                eprintln!("Consider increasing the timeout or checking MCP server configuration.");
+            }
+            Err(e) => {
+                eprintln!("❌ Error sending message: {}", e);
+                return Err(e.into());
+            }
+        }
 
         // Listen for messages
         let mut message_stream = client.messages();

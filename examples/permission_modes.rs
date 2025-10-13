@@ -3,6 +3,7 @@
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::types::PermissionMode;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
+use iflow_cli_sdk_rust::error::IFlowError;
 use std::io::Write;
 
 #[tokio::main]
@@ -97,7 +98,22 @@ async fn demonstrate_permission_mode(
             let prompt =
                 "列出当前目录的文件，并创建一个名为 test.txt 的文件，内容为 'Hello, iFlow!'";
             println!("📤 Sending: {}", prompt);
-            client.send_message(prompt, None).await?;
+            
+            // Handle the send_message result to catch timeout errors
+            match client.send_message(prompt, None).await {
+                Ok(()) => {
+                    println!("✅ Message sent successfully");
+                }
+                Err(IFlowError::Timeout(msg)) => {
+                    eprintln!("⏰ Timeout error occurred: {}", msg);
+                    eprintln!("This may be due to processing delays.");
+                    eprintln!("Consider increasing the timeout or checking the iFlow process.");
+                }
+                Err(e) => {
+                    eprintln!("❌ Error sending message: {}", e);
+                    return Err(e.into());
+                }
+            }
 
             // Wait for the message handling task to finish with a timeout
             match tokio::time::timeout(std::time::Duration::from_secs(60), message_task).await {

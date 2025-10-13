@@ -3,6 +3,7 @@
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer, Message};
+use iflow_cli_sdk_rust::error::IFlowError;
 use std::io::Write;
 
 #[tokio::main]
@@ -36,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }];
 
             // Configure client options with WebSocket configuration and debug mode
-            let custom_timeout_secs = 500.0;
+            let custom_timeout_secs = 120.0;  // Back to default timeout
             let options = IFlowOptions::new()
                 .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
                 .with_timeout(custom_timeout_secs)
@@ -100,7 +101,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Send a message
             let prompt = "use sequential-thinking mcp server to understand how X works";
             println!("📤 Sending: {}", prompt);
-            client.send_message(prompt, None).await?;
+            
+            // Handle the send_message result to catch timeout errors
+            match client.send_message(prompt, None).await {
+                Ok(()) => {
+                    println!("✅ Message sent successfully");
+                }
+                Err(IFlowError::Timeout(msg)) => {
+                    eprintln!("⏰ Timeout error occurred: {}", msg);
+                    eprintln!("This may be due to MCP server startup time or processing delays.");
+                    eprintln!("Consider increasing the timeout or checking MCP server configuration.");
+                }
+                Err(e) => {
+                    eprintln!("❌ Error sending message: {}", e);
+                    return Err(e.into());
+                }
+            }
 
             // Wait for the message handling task to finish with a timeout
             match tokio::time::timeout(
