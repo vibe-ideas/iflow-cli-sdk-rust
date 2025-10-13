@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client.connect().await?;
 
         // Send a message that use MCP capabilities
-    client.send_message("use sequential-thinking mcp server List files in the current directory, calc total font nums", None).await?;
+        client.send_message("use sequential-thinking mcp server List files in the current directory, calc total font nums", None).await?;
 
         // Listen for messages
         let mut message_stream = client.messages();
