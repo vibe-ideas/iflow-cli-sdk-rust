@@ -2,6 +2,7 @@
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
+use iflow_cli_sdk_rust::error::IFlowError;
 use std::time::Duration;
 use tokio::time::timeout;
 
@@ -34,7 +35,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Send a simple test message
             let prompt = "Hello! Please reply with 'Hello back!' to confirm you're working.";
             println!("📤 Sending: {}", prompt);
-            client.send_message(prompt, None).await?;
+            
+            // Handle the send_message result to catch timeout errors
+            match client.send_message(prompt, None).await {
+                Ok(()) => {
+                    println!("✅ Message sent successfully");
+                }
+                Err(IFlowError::Timeout(msg)) => {
+                    eprintln!("⏰ Timeout error occurred: {}", msg);
+                    eprintln!("This may be due to processing delays.");
+                    eprintln!("Consider increasing the timeout or checking the iFlow process.");
+                }
+                Err(e) => {
+                    eprintln!("❌ Error sending message: {}", e);
+                    return Err(e.into());
+                }
+            }
 
             // Wait for response with timeout
             println!("⏳ Waiting for response...");

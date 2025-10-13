@@ -5,6 +5,7 @@
 
 use futures::stream::StreamExt;
 use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer, Message};
+use iflow_cli_sdk_rust::error::IFlowError;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -19,6 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Use LocalSet for spawn_local compatibility
     let local = tokio::task::LocalSet::new();
+    let timeout_secs = 300.0;
     local
         .run_until(async {
             // Configure MCP servers for extended capabilities
@@ -41,6 +43,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let options = IFlowOptions::new()
                 .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
                 .with_mcp_servers(mcp_servers)
+                // Set a reasonable timeout
+                .with_timeout(timeout_secs)
                 .with_logging_config(iflow_cli_sdk_rust::types::LoggingConfig {
                     enabled: true,
                     level: "INFO".to_string(),
@@ -103,13 +107,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             // Send a message that uses MCP capabilities
-            let prompt = "Use sequential-thinking MCP server to list files in the current directory and calculate total file count";
+            let prompt = "List files in the current directory and calculate total file count";
             println!("📤 Sending: {}", prompt);
-            client.send_message(prompt, None).await?;
+            
+            // Handle the send_message result to catch timeout errors
+            match client.send_message(prompt, None).await {
+                Ok(()) => {
+                    println!("✅ Message sent successfully");
+                }
+                Err(IFlowError::Timeout(msg)) => {
+                    eprintln!("⏰ Timeout error occurred: {}", msg);
+                    eprintln!("This may be due to MCP server startup time or processing delays.");
+                    eprintln!("Consider increasing the timeout or checking MCP server configuration.");
+                }
+                Err(e) => {
+                    eprintln!("❌ Error sending message: {}", e);
+                    return Err(e.into());
+                }
+            }
 
             // Wait for the message handling task to finish
             match tokio::time::timeout(
-                std::time::Duration::from_secs(1200),
+                std::time::Duration::from_secs(timeout_secs as u64),  // Match client timeout
                 message_task,
             )
             .await
