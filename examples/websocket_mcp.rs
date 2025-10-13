@@ -50,7 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         max_file_size: 10 * 1024 * 1024, // 10MB
                         max_files: 5,
                     },
-                });
+                })
+                .with_permission_mode(iflow_cli_sdk_rust::types::PermissionMode::Auto);
 
             // Create and connect client
             let mut client = IFlowClient::new(Some(options));
@@ -108,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Wait for the message handling task to finish
             match tokio::time::timeout(
-                std::time::Duration::from_secs(120),
+                std::time::Duration::from_secs(1200),
                 message_task,
             )
             .await
