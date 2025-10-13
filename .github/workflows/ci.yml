@@ -1,6 +1,7 @@
 name: CI (E2E)
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths: ['**/*.rs', 'Cargo.toml', 'Cargo.lock', 'tests/**', 'examples/**']
