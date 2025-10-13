@@ -91,6 +91,13 @@ fn test_websocket_mcp() {
     run_example_test("websocket_mcp");
 }
 
+/// Test the websocket_client example
+#[test]
+#[serial]
+fn test_websocket_client() {
+    run_example_test("websocket_client");
+}
+
 /// Helper function to run an example and check its execution
 fn run_example_test(example_name: &str) {
     let output = Command::new("cargo")

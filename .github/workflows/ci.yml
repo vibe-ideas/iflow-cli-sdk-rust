@@ -52,4 +52,3 @@ jobs:
         ${{ secrets.IFLOW_SETTINGS_JSON }}
         EOF
         RUST_LOG=debug cargo test --test e2e_tests -- --nocapture
-        RUST_LOG=debug cargo run --example websocket_client
