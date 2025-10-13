@@ -56,25 +56,11 @@ fn test_query_with_config() {
     run_example_test("query_with_config");
 }
 
-/// Test the test_realtime example
-#[test]
-#[serial]
-fn test_test_realtime() {
-    run_example_test("test_realtime");
-}
-
 /// Test the test_response example
 #[test]
 #[serial]
 fn test_test_response() {
     run_example_test("test_response");
-}
-
-/// Test the test_stream example
-#[test]
-#[serial]
-fn test_test_stream() {
-    run_example_test("test_stream");
 }
 
 /// Test the mcp_example example

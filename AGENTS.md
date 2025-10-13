@@ -57,12 +57,6 @@ cargo run --example test_response
 # Explore API capabilities
 cargo run --example explore_api
 
-# Test real-time message streaming
-cargo run --example test_stream
-
-# Test real-time performance
-cargo run --example test_realtime
-
 # Logging example
 cargo run --example logging_example
 ```
