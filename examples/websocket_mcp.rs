@@ -4,7 +4,7 @@
 //! such as filesystem access when using WebSocket connection.
 
 use futures::stream::StreamExt;
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, McpServer, EnvVariable, Message};
+use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer, Message};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -24,9 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Configure MCP servers for extended capabilities
             let mcp_servers = vec![
                 McpServer::Stdio {
-                    name: "filesystem".to_string(),
-                    command: PathBuf::from("mcp-server-filesystem"),
-                    args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+                    name: "sequential-thinking".to_string(),
+                    command: PathBuf::from("npx"),
+                    args: vec!["-y".to_string(), "@iflow-mcp/server-sequential-thinking@0.6.2".to_string()],
                     env: vec![
                         EnvVariable {
                             name: "DEBUG".to_string(),
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ],
                 }
             ];
-            
+
             // Configure client options with WebSocket configuration and MCP servers
             let options = IFlowOptions::new()
                 .with_websocket_config(iflow_cli_sdk_rust::types::WebSocketConfig::auto_start())
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             // Send a message that uses MCP capabilities
-            let prompt = "Use filesystem MCP server to list files in the current directory and calculate total file count";
+            let prompt = "Use sequential-thinking MCP server to list files in the current directory and calculate total file count";
             println!("📤 Sending: {}", prompt);
             client.send_message(prompt, None).await?;
 

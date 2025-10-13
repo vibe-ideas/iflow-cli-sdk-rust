@@ -3,8 +3,8 @@
 //! This example shows how to configure MCP servers for extended capabilities
 //! such as filesystem access, command execution, etc.
 
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, McpServer, EnvVariable};
 use futures::stream::StreamExt;
+use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer};
 use std::io::Write;
 
 #[tokio::main]
@@ -22,9 +22,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Configure MCP servers for extended capabilities
         let mcp_servers = vec![
             McpServer::Stdio {
-                name: "filesystem".to_string(),
-                command: PathBuf::from("mcp-server-filesystem"),
-                args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+                name: "sequential-thinking".to_string(),
+                command: PathBuf::from("npx"),
+                args: vec!["-y".to_string(), "@iflow-mcp/server-sequential-thinking@0.6.2".to_string()],
                 env: vec![
                     EnvVariable {
                         name: "DEBUG".to_string(),
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ],
             }
         ];
-        
+
         // Create options with MCP server configuration
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -54,16 +54,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         max_files: 5,
                     },
                 });
-        
+
         // Create client with options
         let mut client = IFlowClient::new(Some(options));
-        
+
         // Connect to iFlow
         client.connect().await?;
-        
+
         // Send a message that use MCP capabilities
-    client.send_message("use filesystem mcp server List files in the current directory, calc total font nums", None).await?;
-        
+    client.send_message("use sequential-thinking mcp server List files in the current directory, calc total font nums", None).await?;
+
         // Listen for messages
         let mut message_stream = client.messages();
         while let Some(message) = message_stream.next().await {
@@ -81,10 +81,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        
+
         // Disconnect from iFlow
         client.disconnect().await?;
-        
+
         Ok(())
     }).await
 }

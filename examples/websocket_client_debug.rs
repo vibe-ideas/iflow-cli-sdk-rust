@@ -2,7 +2,7 @@
 //! with debug mode enabled
 
 use futures::stream::StreamExt;
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message, McpServer, EnvVariable};
+use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer, Message};
 use std::io::Write;
 
 #[tokio::main]
@@ -18,23 +18,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
-        use std::path::PathBuf;
+            use std::path::PathBuf;
 
-        // Configure MCP servers for extended capabilities
-        let mcp_servers = vec![
-            McpServer::Stdio {
+            // Configure MCP servers for extended capabilities
+            let mcp_servers = vec![McpServer::Stdio {
                 name: "sequential-thinking".to_string(),
                 command: PathBuf::from("npx"),
-                args: vec!["-y".to_string(), "@iflow-mcp/server-sequential-thinking@0.6.2".to_string()],
-                env: vec![
-                    EnvVariable {
-                        name: "DEBUG".to_string(),
-                        value: "1".to_string(),
-                        meta: None,
-                    }
+                args: vec![
+                    "-y".to_string(),
+                    "@iflow-mcp/server-sequential-thinking@0.6.2".to_string(),
                 ],
-            }
-        ];
+                env: vec![EnvVariable {
+                    name: "DEBUG".to_string(),
+                    value: "1".to_string(),
+                    meta: None,
+                }],
+            }];
 
             // Configure client options with WebSocket configuration and debug mode
             let custom_timeout_secs = 500.0;
