@@ -14,7 +14,7 @@ mod tests {
     /// Test auto-start in stdio mode
     #[tokio::test]
     async fn test_auto_start_stdio() {
-        let mut pm = IFlowProcessManager::new(8090);
+        let mut pm = IFlowProcessManager::new(8090, false);
         let result = pm.start(false).await;
 
         // We expect this to fail if iFlow CLI is not installed
@@ -49,7 +49,7 @@ mod tests {
     /// Test auto-start in websocket mode
     #[tokio::test]
     async fn test_auto_start_websocket() {
-        let mut pm = IFlowProcessManager::new(8091);
+        let mut pm = IFlowProcessManager::new(8091, false);
         let result = pm.start(true).await;
 
         // We expect this to fail if iFlow CLI is not installed
@@ -88,7 +88,7 @@ mod tests {
     async fn test_manual_start_stdio_not_running() {
         // This test assumes iFlow is not running on the system
         // We're testing the process management logic
-        let mut pm = IFlowProcessManager::new(8092);
+        let mut pm = IFlowProcessManager::new(8092, false);
 
         // In manual mode, we don't actually start the process
         // but we can test the methods
@@ -105,7 +105,7 @@ mod tests {
     async fn test_manual_start_websocket_not_running() {
         // This test assumes iFlow is not running on the system
         // We're testing the process management logic
-        let pm = IFlowProcessManager::new(8093);
+        let pm = IFlowProcessManager::new(8093, false);
 
         // In manual mode, we don't actually start the process
         // but we can test the methods
@@ -132,7 +132,7 @@ mod tests {
 
         // Create a scope to ensure the process manager is dropped
         {
-            let mut pm = IFlowProcessManager::new(8095);
+            let mut pm = IFlowProcessManager::new(8095, false);
             let result = pm.start(false).await;
 
             // Handle the result as in other tests

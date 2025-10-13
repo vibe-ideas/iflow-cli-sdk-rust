@@ -186,8 +186,8 @@ impl WebSocketTransport {
                     });
                     tracing::debug!(
                         "Received message: {}",
-                        if cleaned_text.len() > 200 {
-                            format!("{}...", &cleaned_text[..200])
+                        if cleaned_text.len() > 1000 {
+                            format!("{}...", &cleaned_text[..1000])
                         } else {
                             cleaned_text.to_string()
                         }

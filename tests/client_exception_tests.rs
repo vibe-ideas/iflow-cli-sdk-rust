@@ -37,7 +37,7 @@ mod tests {
             .run_until(async {
                 let mut client = IFlowClient::new(None);
                 let result = client.connect().await;
-                
+
                 // We expect this to fail since iFlow is not running
                 // The exact error type may vary depending on the system
                 match result {
@@ -71,10 +71,10 @@ mod tests {
         let options = IFlowOptions::new()
             .with_auto_start(false) // Manual start
             .with_process_config(ProcessConfig::new().manual_start());
-        
+
         let mut client = IFlowClient::new(Some(options));
         let result = client.connect().await;
-        
+
         // In manual start mode, this might fail differently
         match result {
             Ok(_) => {
@@ -102,12 +102,14 @@ mod tests {
     async fn test_connect_with_manual_start_websocket() {
         let options = IFlowOptions::new()
             .with_auto_start(false) // Manual start
-            .with_websocket_config(WebSocketConfig::new("ws://localhost:8090/acp?peer=iflow".to_string()))
+            .with_websocket_config(WebSocketConfig::new(
+                "ws://localhost:8090/acp?peer=iflow".to_string(),
+            ))
             .with_process_config(ProcessConfig::new().manual_start());
-        
+
         let mut client = IFlowClient::new(Some(options));
         let result = client.connect().await;
-        
+
         // In manual start mode, this might fail differently
         match result {
             Ok(_) => {
@@ -140,11 +142,13 @@ mod tests {
                 // Use a valid but likely unused port
                 let options = IFlowOptions::new()
                     .with_auto_start(true)
-                    .with_process_config(ProcessConfig::new().enable_auto_start().start_port(12345));
-                
+                    .with_process_config(
+                        ProcessConfig::new().enable_auto_start().start_port(12345),
+                    );
+
                 let mut client = IFlowClient::new(Some(options));
                 let result = client.connect().await;
-                
+
                 // This should fail with a process manager error since iFlow is likely not installed
                 match result {
                     Ok(_) => {
@@ -174,7 +178,7 @@ mod tests {
     async fn test_send_message_without_connecting() {
         let mut client = IFlowClient::new(None);
         let result = client.send_message("test message", None).await;
-        
+
         // Should fail with NotConnected error
         match result {
             Err(IFlowError::NotConnected) => {
@@ -202,7 +206,7 @@ mod tests {
     async fn test_interrupt_without_connecting() {
         let client = IFlowClient::new(None);
         let result = client.interrupt().await;
-        
+
         // Should fail with NotConnected error
         match result {
             Err(IFlowError::NotConnected) => {
@@ -219,7 +223,7 @@ mod tests {
     async fn test_disconnect_without_connecting() {
         let mut client = IFlowClient::new(None);
         let result = client.disconnect().await;
-        
+
         // Should succeed even without connecting (idempotent)
         assert!(result.is_ok());
     }
@@ -232,17 +236,17 @@ mod tests {
         local
             .run_until(async {
                 let mut client = IFlowClient::new(None);
-                
+
                 // First connect attempt
                 let result1 = client.connect().await;
-                
+
                 // Second connect attempt
                 let result2 = client.connect().await;
-                
+
                 // At least one should succeed or fail gracefully
                 // The second should not cause any issues
                 assert!(true); // If we get here, double connect didn't panic
-                
+
                 // Print results for debugging
                 println!("First connect result: {:?}", result1);
                 println!("Second connect result: {:?}", result2);
@@ -254,13 +258,13 @@ mod tests {
     #[tokio::test]
     async fn test_double_disconnect() {
         let mut client = IFlowClient::new(None);
-        
+
         // First disconnect attempt
         let result1 = client.disconnect().await;
-        
+
         // Second disconnect attempt
         let result2 = client.disconnect().await;
-        
+
         // Both should succeed (idempotent)
         assert!(result1.is_ok());
         assert!(result2.is_ok());
@@ -274,20 +278,20 @@ mod tests {
         local
             .run_until(async {
                 let mut client = IFlowClient::new(None);
-                
+
                 // Connect
                 let connect_result = client.connect().await;
-                
+
                 // Disconnect
                 let disconnect_result = client.disconnect().await;
                 assert!(disconnect_result.is_ok());
-                
+
                 // Reconnect
                 let reconnect_result = client.connect().await;
-                
+
                 // All operations should complete without panicking
                 assert!(true); // If we get here, the sequence worked
-                
+
                 // Print results for debugging
                 println!("Connect result: {:?}", connect_result);
                 println!("Reconnect result: {:?}", reconnect_result);
@@ -305,7 +309,7 @@ mod tests {
                 let options = IFlowOptions::new().with_timeout(0.001); // Very short timeout
                 let mut client = IFlowClient::new(Some(options));
                 let result = client.connect().await;
-                
+
                 // This might timeout or fail for other reasons
                 match result {
                     Ok(_) => {
@@ -344,7 +348,7 @@ mod tests {
                 let options = IFlowOptions::new().with_timeout(3600.0); // 1 hour timeout
                 let mut client = IFlowClient::new(Some(options));
                 let result = client.connect().await;
-                
+
                 // This should behave normally, just with a longer timeout
                 match result {
                     Ok(_) => {
@@ -374,10 +378,10 @@ mod tests {
     async fn test_websocket_connect_with_invalid_url() {
         let options = IFlowOptions::new()
             .with_websocket_config(WebSocketConfig::new("invalid-url".to_string()));
-        
+
         let mut client = IFlowClient::new(Some(options));
         let result = client.connect().await;
-        
+
         // This should fail with a connection error
         match result {
             Ok(_) => {
@@ -405,10 +409,10 @@ mod tests {
     async fn test_websocket_connect_with_unreachable_url() {
         let options = IFlowOptions::new()
             .with_websocket_config(WebSocketConfig::new("ws://localhost:12345/acp".to_string())); // Unlikely to be listening
-        
+
         let mut client = IFlowClient::new(Some(options));
         let result = client.connect().await;
-        
+
         // This should fail with a connection error
         match result {
             Ok(_) => {
@@ -441,13 +445,13 @@ mod tests {
                 // Create client in a scope to ensure it gets dropped
                 {
                     let mut client = IFlowClient::new(None);
-                    
+
                     // Try to connect (may fail, but that's OK)
                     let _ = client.connect().await;
-                    
+
                     // Client will be dropped here
                 }
-                
+
                 // If we get here without panicking, the drop worked correctly
                 assert!(true);
             })
@@ -461,7 +465,7 @@ mod tests {
         let _client1 = IFlowClient::new(None);
         let _client2 = IFlowClient::new(None);
         let _client3 = IFlowClient::new(None);
-        
+
         // All should be created successfully
         assert!(true); // If we get here, creation succeeded
     }

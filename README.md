@@ -48,6 +48,44 @@ use iflow_cli_sdk_rust::query;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response = query("What is 2 + 2?").await?;
     println!("{}", response); // "4"
+```
+
+### MCP Server Configuration
+
+The SDK supports configuring MCP (Modular Command Protocol) servers for extended capabilities such as filesystem access, command execution, and more. You can configure MCP servers using the `McpServer` type:
+
+```rust
+use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, McpServer, EnvVariable};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Configure MCP servers for extended capabilities
+    let mcp_servers = vec![
+        McpServer {
+            name: "filesystem".to_string(),
+            command: "mcp-server-filesystem".to_string(),
+            args: vec!["--allowed-dirs".to_string(), "/workspace".to_string()],
+            env: vec![
+                EnvVariable {
+                    name: "DEBUG".to_string(),
+                    value: "1".to_string(),
+                }
+            ],
+        }
+    ];
+    
+    // Create options with MCP server configuration
+    let options = IFlowOptions::new()
+        .with_mcp_servers(mcp_servers);
+    
+    // Create client with options
+    let mut client = IFlowClient::new(Some(options));
+    
+    // Connect and use the client as usual
+    client.connect().await?;
+    // ...
+}
+```
     Ok(())
 }
 ```
@@ -221,12 +259,6 @@ cargo run --example test_response
 
 # Explore API capabilities
 cargo run --example explore_api
-
-# Test real-time message streaming
-cargo run --example test_stream
-
-# Test real-time performance
-cargo run --example test_realtime
 
 # Logging example
 cargo run --example logging_example

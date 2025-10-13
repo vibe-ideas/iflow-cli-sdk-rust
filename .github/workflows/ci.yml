@@ -1,6 +1,7 @@
 name: CI (E2E)
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths: ['**/*.rs', 'Cargo.toml', 'Cargo.lock', 'tests/**', 'examples/**']
@@ -44,10 +45,10 @@ jobs:
     
     - name: Run e2e tests
       run: |
+        npx -v
         npm install -g @iflow-ai/iflow-cli@latest
         mkdir -p ~/.iflow
         cat > ~/.iflow/settings.json <<'EOF'
         ${{ secrets.IFLOW_SETTINGS_JSON }}
         EOF
         RUST_LOG=debug cargo test --test e2e_tests -- --nocapture
-        RUST_LOG=debug cargo run --example websocket_client

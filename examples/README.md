@@ -24,16 +24,6 @@ cargo run --example query_with_config
 
 This example shows how to configure the timeout and other options for a query.
 
-### `query_stream.rs`
-
-Shows how to stream responses from iFlow in real-time as they are generated.
-
-```bash
-cargo run --example query_stream
-```
-
-This is useful for long responses where you want to show output as it's being generated.
-
 ## Bidirectional Communication Examples
 
 ### `basic_client.rs`
@@ -67,6 +57,20 @@ This example demonstrates:
 
 ## Advanced Features Examples
 
+### `mcp_example.rs`
+
+Demonstrates how to configure MCP servers for extended capabilities.
+
+```bash
+cargo run --example mcp_example
+```
+
+This example shows:
+
+- Configuring MCP servers with commands and environment variables
+- Using filesystem MCP server for directory listing
+- Handling MCP-related tool calls
+
 ### `permission_modes.rs`
 
 Demonstrates how to control tool call permissions.
@@ -81,34 +85,12 @@ This example shows:
 - How to handle tool call requests
 - Implementing custom permission logic
 
-### `test_stream.rs`
-
-Performance test for message streaming.
-
-```bash
-cargo run --example test_stream
-```
-
-This example:
-
-- Measures message streaming performance
-- Shows detailed timing information
-- Demonstrates handling all message types with timestamps
-
 ### `test_response.rs`
 
 Tests response handling with detailed output.
 
 ```bash
 cargo run --example test_response
-```
-
-### `test_realtime.rs`
-
-Tests real-time performance characteristics.
-
-```bash
-cargo run --example test_realtime
 ```
 
 ### `logging_example.rs`
