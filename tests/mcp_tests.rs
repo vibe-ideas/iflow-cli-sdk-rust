@@ -8,8 +8,8 @@
 
 #[cfg(test)]
 mod tests {
-    use iflow_cli_sdk_rust::{IFlowOptions, McpServer, EnvVariable};
-    use iflow_cli_sdk_rust::types::{PermissionMode, LoggingConfig};
+    use iflow_cli_sdk_rust::types::{LoggingConfig, PermissionMode};
+    use iflow_cli_sdk_rust::{EnvVariable, IFlowOptions, McpServer};
     use std::path::PathBuf;
 
     /// Test creating MCP server configuration
@@ -40,7 +40,12 @@ mod tests {
 
         // Verify the configuration
         match &mcp_server {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "filesystem");
                 assert_eq!(command, &PathBuf::from("mcp-server-filesystem"));
                 assert_eq!(args.len(), 3);
@@ -133,7 +138,7 @@ mod tests {
                 assert_eq!(env[0].name, "CUSTOM_VAR");
                 assert_eq!(env[0].value, "custom_value");
                 assert!(env[0].meta.is_some());
-                
+
                 assert_eq!(env[1].name, "ANOTHER_VAR");
                 assert_eq!(env[1].value, "another_value");
                 assert!(env[1].meta.is_none());
@@ -156,17 +161,20 @@ mod tests {
                 "--max-connections".to_string(),
                 "10".to_string(),
             ],
-            env: vec![
-                EnvVariable {
-                    name: "RUST_LOG".to_string(),
-                    value: "debug".to_string(),
-                    meta: None,
-                },
-            ],
+            env: vec![EnvVariable {
+                name: "RUST_LOG".to_string(),
+                value: "debug".to_string(),
+                meta: None,
+            }],
         };
 
         match &mcp_server {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "complex-server");
                 assert_eq!(command, &PathBuf::from("/usr/local/bin/complex-mcp-server"));
                 assert_eq!(args.len(), 6);
@@ -187,18 +195,16 @@ mod tests {
     /// Test IFlowOptions with MCP servers and other configurations
     #[test]
     fn test_iflow_options_comprehensive_mcp() {
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "filesystem".to_string(),
-                command: PathBuf::from("mcp-server-filesystem"),
-                args: vec![
-                    "--allowed-dirs".to_string(),
-                    "/home/user".to_string(),
-                    "/tmp".to_string(),
-                ],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "filesystem".to_string(),
+            command: PathBuf::from("mcp-server-filesystem"),
+            args: vec![
+                "--allowed-dirs".to_string(),
+                "/home/user".to_string(),
+                "/tmp".to_string(),
+            ],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -224,7 +230,10 @@ mod tests {
         assert!(options.logging.enabled);
         assert_eq!(options.logging.level, "DEBUG");
         assert!(options.logging.logger_config.enabled);
-        assert_eq!(options.logging.logger_config.log_file, PathBuf::from("logs/mcp_test.log"));
+        assert_eq!(
+            options.logging.logger_config.log_file,
+            PathBuf::from("logs/mcp_test.log")
+        );
         assert_eq!(options.logging.logger_config.max_file_size, 5 * 1024 * 1024);
         assert_eq!(options.logging.logger_config.max_files, 3);
     }
@@ -238,18 +247,16 @@ mod tests {
             name: "test-serialization".to_string(),
             command: PathBuf::from("test-server"),
             args: vec!["--test".to_string()],
-            env: vec![
-                EnvVariable {
-                    name: "TEST_VAR".to_string(),
-                    value: "test_value".to_string(),
-                    meta: None,
-                },
-            ],
+            env: vec![EnvVariable {
+                name: "TEST_VAR".to_string(),
+                value: "test_value".to_string(),
+                meta: None,
+            }],
         };
 
         // Serialize to JSON
         let serialized = serde_json::to_string(&mcp_server).unwrap();
-        
+
         // Verify the JSON structure contains expected fields
         assert!(serialized.contains("\"name\":\"test-serialization\""));
         assert!(serialized.contains("\"command\":\"test-server\""));
@@ -265,13 +272,13 @@ mod tests {
     fn test_http_mcp_server_placeholder() {
         // Note: HTTP MCP server variant is not yet available in agent-client-protocol v0.4.5
         // This test serves as a placeholder for when HTTP support is added
-        // 
+        //
         // Example of what HTTP MCP server configuration might look like:
         // let http_server = McpServer::Http {
         //     name: "http-server".to_string(),
         //     url: "http://localhost:8080".to_string(),
         // };
-        // 
+        //
         // For now, we just verify that Stdio variant works correctly
         let stdio_server = McpServer::Stdio {
             name: "stdio-server".to_string(),
@@ -279,7 +286,7 @@ mod tests {
             args: vec!["--http".to_string()],
             env: vec![],
         };
-        
+
         match stdio_server {
             McpServer::Stdio { name, .. } => {
                 assert_eq!(name, "stdio-server");
@@ -294,13 +301,13 @@ mod tests {
     fn test_sse_mcp_server_placeholder() {
         // Note: SSE MCP server variant is not yet available in agent-client-protocol v0.4.5
         // This test serves as a placeholder for when SSE support is added
-        // 
+        //
         // Example of what SSE MCP server configuration might look like:
         // let sse_server = McpServer::Sse {
         //     name: "sse-server".to_string(),
         //     url: "http://localhost:8081".to_string(),
         // };
-        // 
+        //
         // For now, we just verify that Stdio variant works correctly
         let stdio_server = McpServer::Stdio {
             name: "stdio-server".to_string(),
@@ -308,7 +315,7 @@ mod tests {
             args: vec!["--sse".to_string()],
             env: vec![],
         };
-        
+
         match stdio_server {
             McpServer::Stdio { name, .. } => {
                 assert_eq!(name, "stdio-server");
@@ -328,7 +335,12 @@ mod tests {
         };
 
         match &mcp_server {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "empty-server");
                 assert_eq!(command, &PathBuf::from("empty-server"));
                 assert!(args.is_empty());
@@ -361,7 +373,11 @@ mod tests {
             McpServer::Stdio {
                 name: "server3".to_string(),
                 command: PathBuf::from("server3"),
-                args: vec!["--flag3".to_string(), "arg3".to_string(), "--verbose".to_string()],
+                args: vec![
+                    "--flag3".to_string(),
+                    "arg3".to_string(),
+                    "--verbose".to_string(),
+                ],
                 env: vec![
                     EnvVariable {
                         name: "VAR3A".to_string(),
@@ -383,7 +399,12 @@ mod tests {
 
         // Verify each server
         match &options.mcp_servers[0] {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "server1");
                 assert_eq!(command, &PathBuf::from("server1"));
                 assert_eq!(args.len(), 1);
@@ -394,7 +415,12 @@ mod tests {
         }
 
         match &options.mcp_servers[1] {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "server2");
                 assert_eq!(command, &PathBuf::from("server2"));
                 assert_eq!(args.len(), 2);
@@ -406,7 +432,12 @@ mod tests {
         }
 
         match &options.mcp_servers[2] {
-            McpServer::Stdio { name, command, args, env } => {
+            McpServer::Stdio {
+                name,
+                command,
+                args,
+                env,
+            } => {
                 assert_eq!(name, "server3");
                 assert_eq!(command, &PathBuf::from("server3"));
                 assert_eq!(args.len(), 3);

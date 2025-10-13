@@ -114,12 +114,12 @@ impl IFlowProcessManager {
             cmd.arg("--experimental-acp");
             cmd.arg("--port");
             cmd.arg(port.to_string());
-            
+
             // Add debug flag if enabled
             if self.debug {
                 cmd.arg("--debug");
             }
-            
+
             // In WebSocket mode, set stdout/stderr to inherit to avoid blocking/exit when pipes are not consumed
             cmd.stdout(Stdio::inherit());
             cmd.stderr(Stdio::inherit());
@@ -148,10 +148,10 @@ impl IFlowProcessManager {
                 attempts += 1;
                 if attempts % 5 == 0 {
                     tracing::debug!(
-                "Still waiting for iFlow to be ready... (attempt {}/{})",
-                attempts,
-                max_attempts
-            );
+                        "Still waiting for iFlow to be ready... (attempt {}/{})",
+                        attempts,
+                        max_attempts
+                    );
                 }
 
                 sleep(Duration::from_secs(1)).await;
@@ -165,9 +165,9 @@ impl IFlowProcessManager {
             }
 
             tracing::debug!(
-            "iFlow process started with WebSocket support on port {}",
-            port
-        );
+                "iFlow process started with WebSocket support on port {}",
+                port
+            );
 
             // Return the WebSocket URL with peer parameter
             Ok(Some(format!("ws://localhost:{}/acp?peer=iflow", port)))
@@ -177,12 +177,12 @@ impl IFlowProcessManager {
             // Start iFlow process with stdio support
             let mut cmd = tokio::process::Command::new("iflow");
             cmd.arg("--experimental-acp");
-            
+
             // Add debug flag if enabled
             if self.debug {
                 cmd.arg("--debug");
             }
-            
+
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
             cmd.stdin(Stdio::piped()); // stdin needed for stdio

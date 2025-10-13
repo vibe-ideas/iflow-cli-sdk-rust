@@ -8,21 +8,19 @@
 
 #[cfg(test)]
 mod tests {
-    use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, McpServer, EnvVariable};
-use iflow_cli_sdk_rust::types::{PermissionMode, LoggingConfig};
-use std::path::PathBuf;
+    use iflow_cli_sdk_rust::types::{LoggingConfig, PermissionMode};
+    use iflow_cli_sdk_rust::{EnvVariable, IFlowClient, IFlowOptions, McpServer};
+    use std::path::PathBuf;
 
     /// Test IFlowClient creation with MCP servers configuration
     #[tokio::test]
     async fn test_iflow_client_with_mcp_servers() {
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "test-filesystem".to_string(),
-                command: PathBuf::from("mcp-server-filesystem"),
-                args: vec!["--allowed-dirs".to_string(), ".".to_string()],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "test-filesystem".to_string(),
+            command: PathBuf::from("mcp-server-filesystem"),
+            args: vec!["--allowed-dirs".to_string(), ".".to_string()],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -39,30 +37,28 @@ use std::path::PathBuf;
     /// Test MCP server configuration with complex environment variables
     #[tokio::test]
     async fn test_mcp_server_complex_env() {
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "complex-env-server".to_string(),
-                command: PathBuf::from("complex-server"),
-                args: vec!["--config".to_string(), "/path/to/config.json".to_string()],
-                env: vec![
-                    EnvVariable {
-                        name: "RUST_LOG".to_string(),
-                        value: "debug".to_string(),
-                        meta: Some(serde_json::json!({"description": "Log level"})),
-                    },
-                    EnvVariable {
-                        name: "DATABASE_URL".to_string(),
-                        value: "postgres://localhost:5432/mydb".to_string(),
-                        meta: Some(serde_json::json!({"description": "Database connection string"})),
-                    },
-                    EnvVariable {
-                        name: "API_KEY".to_string(),
-                        value: "secret-key".to_string(),
-                        meta: Some(serde_json::json!({"secure": true})),
-                    },
-                ],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "complex-env-server".to_string(),
+            command: PathBuf::from("complex-server"),
+            args: vec!["--config".to_string(), "/path/to/config.json".to_string()],
+            env: vec![
+                EnvVariable {
+                    name: "RUST_LOG".to_string(),
+                    value: "debug".to_string(),
+                    meta: Some(serde_json::json!({"description": "Log level"})),
+                },
+                EnvVariable {
+                    name: "DATABASE_URL".to_string(),
+                    value: "postgres://localhost:5432/mydb".to_string(),
+                    meta: Some(serde_json::json!({"description": "Database connection string"})),
+                },
+                EnvVariable {
+                    name: "API_KEY".to_string(),
+                    value: "secret-key".to_string(),
+                    meta: Some(serde_json::json!({"secure": true})),
+                },
+            ],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -87,14 +83,12 @@ use std::path::PathBuf;
     /// Test MCP server configuration with WebSocket transport
     #[tokio::test]
     async fn test_mcp_with_websocket_config() {
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "websocket-mcp-server".to_string(),
-                command: PathBuf::from("mcp-server-websocket"),
-                args: vec!["--port".to_string(), "8080".to_string()],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "websocket-mcp-server".to_string(),
+            command: PathBuf::from("mcp-server-websocket"),
+            args: vec!["--port".to_string(), "8080".to_string()],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -108,7 +102,6 @@ use std::path::PathBuf;
         // Verify client creation with WebSocket and MCP
         assert!(std::mem::size_of_val(&client) > 0);
     }
-
 
     /// Test MCP server configuration with multiple different servers
     #[tokio::test]
@@ -152,14 +145,12 @@ use std::path::PathBuf;
     /// Test MCP server configuration with auto-start process management
     #[tokio::test]
     async fn test_mcp_with_auto_start() {
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "auto-start-server".to_string(),
-                command: PathBuf::from("mcp-server-auto-start"),
-                args: vec!["--auto".to_string()],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "auto-start-server".to_string(),
+            command: PathBuf::from("mcp-server-auto-start"),
+            args: vec!["--auto".to_string()],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -227,7 +218,7 @@ use std::path::PathBuf;
     async fn test_http_mcp_server_integration_placeholder() {
         // Note: HTTP MCP server variant is not yet available in agent-client-protocol v0.4.5
         // This test serves as a placeholder for when HTTP support is added
-        // 
+        //
         // Example of what HTTP MCP server configuration might look like:
         // let mcp_servers = vec![
         //     McpServer::Http {
@@ -235,19 +226,17 @@ use std::path::PathBuf;
         //         url: "http://localhost:8080".to_string(),
         //     },
         // ];
-        // 
+        //
         // For now, we test with Stdio variant that supports HTTP-like functionality
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "http-proxy-server".to_string(),
-                command: PathBuf::from("mcp-http-proxy"),
-                args: vec![
-                    "--target-url".to_string(),
-                    "http://localhost:8080".to_string(),
-                ],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "http-proxy-server".to_string(),
+            command: PathBuf::from("mcp-http-proxy"),
+            args: vec![
+                "--target-url".to_string(),
+                "http://localhost:8080".to_string(),
+            ],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)
@@ -265,7 +254,7 @@ use std::path::PathBuf;
     async fn test_sse_mcp_server_integration_placeholder() {
         // Note: SSE MCP server variant is not yet available in agent-client-protocol v0.4.5
         // This test serves as a placeholder for when SSE support is added
-        // 
+        //
         // Example of what SSE MCP server configuration might look like:
         // let mcp_servers = vec![
         //     McpServer::Sse {
@@ -273,19 +262,14 @@ use std::path::PathBuf;
         //         url: "http://localhost:8081".to_string(),
         //     },
         // ];
-        // 
+        //
         // For now, we test with Stdio variant that supports SSE-like functionality
-        let mcp_servers = vec![
-            McpServer::Stdio {
-                name: "sse-proxy-server".to_string(),
-                command: PathBuf::from("mcp-sse-proxy"),
-                args: vec![
-                    "--sse-url".to_string(),
-                    "http://localhost:8081".to_string(),
-                ],
-                env: vec![],
-            },
-        ];
+        let mcp_servers = vec![McpServer::Stdio {
+            name: "sse-proxy-server".to_string(),
+            command: PathBuf::from("mcp-sse-proxy"),
+            args: vec!["--sse-url".to_string(), "http://localhost:8081".to_string()],
+            env: vec![],
+        }];
 
         let options = IFlowOptions::new()
             .with_mcp_servers(mcp_servers)

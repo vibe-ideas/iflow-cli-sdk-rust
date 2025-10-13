@@ -354,7 +354,11 @@ impl ACPProtocol {
     /// # Returns
     /// * `Ok(String)` containing the session ID
     /// * `Err(IFlowError)` if session creation failed
-    pub async fn create_session(&mut self, cwd: &str, mcp_servers: Vec<serde_json::Value>) -> Result<String> {
+    pub async fn create_session(
+        &mut self,
+        cwd: &str,
+        mcp_servers: Vec<serde_json::Value>,
+    ) -> Result<String> {
         if !self.initialized {
             return Err(IFlowError::Protocol(
                 "Protocol not initialized. Call initialize() first.".to_string(),
@@ -381,7 +385,10 @@ impl ACPProtocol {
         });
 
         self.transport.send(&request).await?;
-        debug!("Sent session/new request with cwd: {} and mcpServers: {:?}", cwd, mcp_servers);
+        debug!(
+            "Sent session/new request with cwd: {} and mcpServers: {:?}",
+            cwd, mcp_servers
+        );
 
         // Wait for response with timeout
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);

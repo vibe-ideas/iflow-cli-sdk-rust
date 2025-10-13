@@ -8,12 +8,12 @@ use crate::error::{IFlowError, Result};
 use crate::logger::MessageLogger;
 use crate::process_manager::IFlowProcessManager;
 use crate::types::*;
-use serde_json;
 use crate::websocket_transport::WebSocketTransport;
 use agent_client_protocol::{
     Agent, Client, ClientSideConnection, ContentBlock, SessionId, SessionUpdate,
 };
 use futures::{FutureExt, pin_mut, stream::Stream};
+use serde_json;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -445,8 +445,9 @@ impl IFlowClient {
                                 // 2. Authentication or other protocol issues
                                 // 3. The iFlow instance is busy or not ready
                                 debug!(
-                            "iFlow appears to be running on port {}, but connection failed: {}", port, e
-                        );
+                                    "iFlow appears to be running on port {}, but connection failed: {}",
+                                    port, e
+                                );
                                 debug!(
                                     "Since iFlow is running on the specified port, we won't start a new process. Please check if the existing iFlow instance is configured correctly for WebSocket connections."
                                 );
@@ -456,10 +457,9 @@ impl IFlowClient {
                                 )));
                             } else {
                                 // Port is not listening, iFlow is not running, start it
-                                debug!(
-                                    "iFlow not running on port {}, starting process", port
-                                );
-                                let mut pm = IFlowProcessManager::new(port, self.options.process.debug);
+                                debug!("iFlow not running on port {}, starting process", port);
+                                let mut pm =
+                                    IFlowProcessManager::new(port, self.options.process.debug);
                                 let iflow_url = pm.start(true).await?.ok_or_else(|| {
                                     IFlowError::Connection(
                                         "Failed to start iFlow with WebSocket".to_string(),
@@ -695,8 +695,9 @@ impl IFlowClient {
             })?;
 
         tracing::debug!(
-                    "Prompt response received, stop reason: {:?}", prompt_response.stop_reason
-                );
+            "Prompt response received, stop reason: {:?}",
+            prompt_response.stop_reason
+        );
 
         // Send task finish message with the actual stop reason
         let message = Message::TaskFinish {
@@ -750,9 +751,10 @@ impl IFlowClient {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."))
                 .to_string_lossy()
                 .to_string();
-            
+
             // Convert McpServer objects to JSON-compatible format
-            let mcp_servers: Vec<serde_json::Value> = self.options
+            let mcp_servers: Vec<serde_json::Value> = self
+                .options
                 .mcp_servers
                 .iter()
                 .map(|server| {
@@ -761,11 +763,14 @@ impl IFlowClient {
                     serde_json::json!(server)
                 })
                 .collect();
-            
-            let new_session_id = protocol.create_session(&current_dir, mcp_servers).await.map_err(|e| {
-                tracing::error!("Failed to create session: {}", e);
-                e
-            })?;
+
+            let new_session_id = protocol
+                .create_session(&current_dir, mcp_servers)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to create session: {}", e);
+                    e
+                })?;
             *session_id = Some(new_session_id);
             tracing::debug!("Session created successfully");
         }
