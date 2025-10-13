@@ -1,7 +1,10 @@
 //! E2E tests for iFlow CLI SDK examples
 
 use std::fs;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
+use std::thread;
+use std::sync::{Arc, Mutex};
 use serial_test::serial;
 
 /// Test the basic_client example
@@ -86,28 +89,79 @@ fn test_websocket_client() {
 
 /// Helper function to run an example and check its execution
 fn run_example_test(example_name: &str) {
-    let output = Command::new("cargo")
+    println!("Running example: {}", example_name);
+    
+    let mut child = Command::new("cargo")
         .args(&["run", "--example", example_name])
-        .output()
+        .stdout(Stdio::piped())  // Pipe stdout to read and print in real-time
+        .stderr(Stdio::piped())  // Pipe stderr to read and print in real-time
+        .spawn()
         .expect("Failed to execute example");
 
-    // Print stdout and stderr for debugging
-    println!("Example: {}", example_name);
-    println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-    println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    // Shared buffers to capture output for error checking
+    let stderr_buffer = Arc::new(Mutex::new(String::new()));
+    
+    // Clone references for the threads
+    let stderr_buffer_clone = Arc::clone(&stderr_buffer);
+
+    // Get the stdout and stderr handles
+    let stdout = child.stdout.take().expect("Failed to get stdout handle");
+    let stderr = child.stderr.take().expect("Failed to get stderr handle");
+
+    // Spawn threads to read and print stdout and stderr in real-time
+    let stdout_thread = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(line) => println!("{}", line),
+                Err(err) => eprintln!("Error reading stdout: {}", err),
+            }
+        }
+    });
+
+    let stderr_thread = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        let mut buffer = stderr_buffer_clone.lock().unwrap();
+        for line in reader.lines() {
+            match line {
+                Ok(line) => {
+                    eprintln!("{}", line);
+                    buffer.push_str(&line);
+                    buffer.push('\n');
+                },
+                Err(err) => {
+                    eprintln!("Error reading stderr: {}", err);
+                    buffer.push_str(&format!("Error reading stderr: {}\n", err));
+                }
+            }
+        }
+    });
+
+    // Wait for the process to complete
+    let status = child.wait().expect("Failed to wait for child process");
+    
+    // Wait for the output threads to finish
+    stdout_thread.join().expect("Failed to join stdout thread");
+    stderr_thread.join().expect("Failed to join stderr thread");
+
+    // Get the captured stderr content
+    let stderr_content = stderr_buffer.lock().unwrap().clone();
 
     // Check if the process finished successfully (exit code 0)
     // Note: Some examples might fail due to missing iFlow CLI, which is expected in E2E tests
     // We're primarily checking that the examples don't panic or crash
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+    if !status.success() {
         // Allow "Connection failed" messages as they're expected when iFlow CLI is not installed
-        if !stderr.contains("Connection failed") {
+        if !stderr_content.contains("Connection failed") {
             panic!(
                 "Example {} failed with exit code: {:?}",
                 example_name,
-                output.status.code()
+                status.code()
             );
+        } else {
+            println!("Example {} failed as expected due to missing iFlow CLI", example_name);
         }
+    } else {
+        println!("Example {} completed successfully", example_name);
     }
 }
