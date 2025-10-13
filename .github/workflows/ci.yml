@@ -44,6 +44,7 @@ jobs:
     
     - name: Run e2e tests
       run: |
+        npx -v
         npm install -g @iflow-ai/iflow-cli@latest
         mkdir -p ~/.iflow
         cat > ~/.iflow/settings.json <<'EOF'
