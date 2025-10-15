@@ -4,13 +4,12 @@ version = "0.1.0"
 edition = "2024"
 authors = ["iFlow Community Team"]
 description = "Rust SDK for iFlow CLI using Agent Communication Protocol"
-license = "MIT"
 repository = "https://github.com/vibe-ideas/iflow-cli-sdk-rust"
 keywords = ["iflow", "agent", "ai", "websocket", "protocol"]
 categories = ["api-bindings", "asynchronous"]
 readme = "README.md"
 license-file = "LICENSE"
-exclude = ["/.github", "/tests", "/.vscode", "/.iflow"]
+exclude = ["/.github", "/tests/*", "/.vscode", "/.iflow"]
 
 [dependencies]
 # Use the official agent-client-protocol crate
