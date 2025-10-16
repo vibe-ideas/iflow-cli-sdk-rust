@@ -488,7 +488,7 @@ dependencies = [
 
 [[package]]
 name = "iflow-cli-sdk-rust"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
