@@ -1,6 +1,6 @@
 [package]
 name = "iflow-cli-sdk-rust"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["iFlow Community Team"]
 description = "Rust SDK for iFlow CLI using Agent Communication Protocol"
@@ -13,10 +13,10 @@ exclude = ["/.github", "/tests/*", "/.vscode", "/.iflow"]
 
 [dependencies]
 # Use the official agent-client-protocol crate
-agent-client-protocol = "0.4.3"
+agent-client-protocol = "0.4.7"
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -38,8 +38,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Utilities
-uuid = { version = "1.0", features = ["v4"] }
-url = "2.0"
+uuid = { version = "1.18", features = ["v4"] }
+url = "2.5"
 tokio-tungstenite = "0.20"
 
 # Optional dependencies for enhanced functionality
@@ -48,7 +48,7 @@ mime = { version = "0.3", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 serial_test = "3.2.0"
 
 [features]
