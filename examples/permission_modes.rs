@@ -95,12 +95,42 @@ async fn demonstrate_permission_mode(
             });
 
             // Send a message that might trigger tool calls
-            let prompt =
-                "列出当前目录的文件，并创建一个名为 test.txt 的文件，内容为 'Hello, iFlow!'";
+            // For Auto mode keep a simple prompt. For Selective/Manual modes send a compound
+            // instruction containing 7 independent operations and explicitly ask the assistant
+            // to request permission before executing each operation. This is intended to
+            // trigger 7 separate permission requests when permission mode is not Auto.
+            let prompt = match mode {
+                PermissionMode::Auto => {
+                    // Build a compound instruction with 7 independent steps.
+                    // Each step explicitly asks the assistant to request permission before executing.
+                    let steps = vec![
+                        "1) 列出当前目录的文件",
+                        "2) 读取文件 /etc/hosts 的前 10 行",
+                        "3) 创建一个名为 example_1.txt 的文件，写入 'Step 3'",
+                        "4) 创建一个名为 example_2.txt 的文件，写入 'Step 4'",
+                        "5) 在当前目录创建一个名为 dir_example 的目录",
+                        "6) 在 dir_example 中创建一个名为 nested.txt 的文件，写入 'Nested'",
+                        "7) 删除上面创建的 example_1.txt（如果存在）",
+                        "8) 使用 find 查找文件 a 是否存在",
+                        "9) 执行 git status 命令",
+                        "10) 执行 file /etc/hosts 命令",
+                    ];
+
+                    let mut prompt = String::from("请按顺序执行下面 9=10 个独立操作。\n");
+                    for s in steps {
+                        prompt.push_str(s);
+                        prompt.push_str("\n");
+                    }
+                    prompt.push_str("");
+                    prompt
+                },
+                _ =>
+                    "列出当前目录的文件，并创建一个名为 test.txt 的文件，内容为 'Hello, iFlow!'".to_string()
+            };
             println!("📤 Sending: {}", prompt);
             
             // Handle the send_message result to catch timeout errors
-            match client.send_message(prompt, None).await {
+            match client.send_message(&prompt, None).await {
                 Ok(()) => {
                     println!("✅ Message sent successfully");
                 }
