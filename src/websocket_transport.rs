@@ -101,12 +101,7 @@ impl WebSocketTransport {
             .map_err(|e| IFlowError::Transport(format!("Failed to send message: {}", e)))?;
 
         tracing::debug!(
-            "Sent message: {}",
-            if data.len() > 200 {
-                format!("{}...", &data[..200])
-            } else {
-                data
-            }
+            "Sent message: {}", data
         );
 
         Ok(())
@@ -135,11 +130,7 @@ impl WebSocketTransport {
 
         tracing::debug!(
             "Sent raw message: {}",
-            if message.len() > 200 {
-                format!("{}...", &message[..200])
-            } else {
-                message.to_string()
-            }
+            message.to_string()
         );
 
         Ok(())

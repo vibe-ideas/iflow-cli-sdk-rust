@@ -7,7 +7,6 @@
 use crate::error::{IFlowError, Result};
 use crate::types::{IFlowOptions, Message, PermissionMode};
 use crate::websocket_transport::WebSocketTransport;
-// Remove unused imports
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -468,7 +467,7 @@ impl ACPProtocol {
 
         // Wait for response
         let response_timeout = Duration::from_secs_f64(self.timeout_secs);
-        let response = timeout(response_timeout, self.wait_for_response(request_id))
+        let response = timeout(response_timeout, self.wait_for_response_with_notifications(request_id))
             .await
             .map_err(|_| IFlowError::Timeout("Timeout waiting for prompt response".to_string()))?
             .map_err(|e| IFlowError::Protocol(format!("Failed to send prompt: {}", e)))?;
@@ -507,18 +506,16 @@ impl ACPProtocol {
                 )));
             }
 
-            let msg = match timeout(
-                Duration::from_secs_f64(self.timeout_secs.min(5.0)),
-                self.transport.receive(),
-            )
-            .await
-            {
+            // Use a shorter timeout for receiving messages to allow for periodic checks
+            let receive_timeout = Duration::from_secs_f64(self.timeout_secs.min(1.0));
+            let msg = match timeout(receive_timeout, self.transport.receive()).await {
                 Ok(Ok(msg)) => msg,
                 Ok(Err(e)) => {
                     tracing::error!("Transport error while waiting for response: {}", e);
                     return Err(e);
                 }
                 Err(_) => {
+                    // Timeout is expected, continue waiting
                     tracing::debug!(
                         "No message received, continuing to wait for response to request {}...",
                         request_id
@@ -544,6 +541,88 @@ impl ACPProtocol {
 
             // Check if this is the response we're waiting for
             if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
+                if id == request_id as u64 {
+                    return Ok(data);
+                }
+            }
+
+            // If not our response, process as a notification
+            if let Err(e) = self.handle_notification(data).await {
+                tracing::warn!("Failed to handle notification: {}", e);
+                // Don't fail the entire wait, just log and continue
+            }
+        }
+    }
+
+    /// Wait for a response to a specific request while handling notifications
+    ///
+    /// # Arguments
+    /// * `request_id` - The ID of the request to wait for
+    ///
+    /// # Returns
+    /// * `Ok(Value)` containing the response
+    /// * `Err(IFlowError)` if waiting failed
+    async fn wait_for_response_with_notifications(&mut self, request_id: u32) -> Result<Value> {
+        let timeout_duration = Duration::from_secs_f64(self.timeout_secs);
+        let start_time = std::time::Instant::now();
+
+        loop {
+            if start_time.elapsed() > timeout_duration {
+                return Err(IFlowError::Timeout(format!(
+                    "Timeout waiting for response to request {}",
+                    request_id
+                )));
+            }
+
+            // Use a shorter timeout for receiving messages to allow for periodic checks
+            let receive_timeout = Duration::from_secs_f64(self.timeout_secs.min(1.0));
+            let msg = match timeout(receive_timeout, self.transport.receive()).await {
+                Ok(Ok(msg)) => msg,
+                Ok(Err(e)) => {
+                    tracing::error!("Transport error while waiting for response: {}", e);
+                    return Err(e);
+                }
+                Err(_) => {
+                    // Timeout is expected, continue waiting
+                    tracing::debug!(
+                        "No message received, continuing to wait for response to request {}...",
+                        request_id
+                    );
+                    continue;
+                }
+            };
+
+            // Skip control messages
+            if msg.starts_with("//") {
+                tracing::debug!("Control message: {}", msg);
+                continue;
+            }
+
+            // Try to parse as JSON
+            let data: Value = match serde_json::from_str(&msg) {
+                Ok(data) => data,
+                Err(e) => {
+                    tracing::debug!("Failed to parse message as JSON: {}, message: {}", e, msg);
+                    continue;
+                }
+            };
+
+            // Check if this is the response we're waiting for
+            if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
+                // Handle permission requests that come with an ID
+                if let Some(method) = data.get("method").and_then(|v| v.as_str()) {
+                    if method == "session/request_permission" {
+                        tracing::debug!("Handling session/request_permission with ID: {}", id);
+                        // Process the permission request immediately
+                        if let Err(e) = self.handle_client_method(method, data.clone()).await {
+                            tracing::warn!("Failed to handle permission request: {}", e);
+                        }
+                        // Continue waiting for the main response
+                        continue;
+                    }
+                }
+                
+                // If this is the response we're waiting for, return it
                 if id == request_id as u64 {
                     return Ok(data);
                 }
@@ -602,6 +681,7 @@ impl ACPProtocol {
             }
             "session/request_permission" => {
                 // Handle permission request from CLI
+                tracing::debug!("Handling session/request_permission");
                 self.handle_permission_request(params, request_id).await?;
             }
             _ => {
@@ -676,7 +756,8 @@ impl ACPProtocol {
             }
         };
 
-        let response = if auto_approve {
+        use agent_client_protocol::{RequestPermissionOutcome, RequestPermissionResponse};
+        let permission_response = if auto_approve {
             // Find the appropriate option from the provided options
             let mut selected_option = "proceed_once".to_string();
             if let Some(options_array) = options.as_array() {
@@ -690,48 +771,42 @@ impl ACPProtocol {
                         }
                     }
                 }
-
                 // Fallback to first option's optionId if no specific option found
                 if selected_option == "proceed_once" && !options_array.is_empty() {
-                    if let Some(first_option_id) =
-                        options_array[0].get("optionId").and_then(|v| v.as_str())
-                    {
+                    if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
                         selected_option = first_option_id.to_string();
                     }
                 }
             }
-
-            json!({
-                "outcome": {
-                    "outcome": "selected",
-                    "optionId": selected_option
-                }
-            })
+            RequestPermissionResponse {
+                outcome: RequestPermissionOutcome::Selected {
+                    option_id: agent_client_protocol::PermissionOptionId(std::sync::Arc::from(selected_option)),
+                },
+                meta: None,
+            }
         } else {
-            // Reject the permission request
-            json!({
-                "outcome": {
-                    "outcome": "cancelled"
-                }
-            })
+            RequestPermissionResponse {
+                outcome: RequestPermissionOutcome::Cancelled,
+                meta: None,
+            }
         };
 
         // Send response if request ID is provided
         if let Some(id) = request_id {
-            let response_message = json!({
+            let response_message = serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": id,
-                "result": response
+                "result": permission_response
             });
             self.transport.send(&response_message).await?;
         }
 
-        let outcome = response
-            .get("outcome")
-            .and_then(|o| o.get("outcome"))
-            .and_then(|o| o.as_str())
-            .unwrap_or("unknown");
-        tracing::debug!("Permission request for tool '{}': {}", tool_title, outcome);
+        let outcome_str = match &permission_response.outcome {
+            RequestPermissionOutcome::Cancelled => "cancelled",
+            RequestPermissionOutcome::Selected { option_id } => &*option_id.0,
+        };
+        tracing::debug!("Permission request for tool '{}': {}", tool_title, outcome_str);
+        
         Ok(())
     }
 
