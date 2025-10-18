@@ -57,17 +57,17 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 
 **Goal**: Complete support for all ACP message types
 
-- [ ] Implement complete `PlanMessage` handling
-- [ ] Implement complete `ToolCallMessage` handling
-- [ ] Implement `UserMessage` handling
-- [ ] Implement detailed `ErrorMessage` handling
-- [ ] Add message type test cases
+- [X] Implement complete `PlanMessage` handling
+- [X] Implement complete `ToolCallMessage` handling
+- [X] Implement `UserMessage` handling
+- [X] Implement detailed `ErrorMessage` handling
+- [X] Add message type test cases
 
 ### Phase 2: Advanced Configuration Support (v0.3.0)
 
 **Goal**: Provide configuration options comparable to the Python SDK
 
-- [ ] Implement MCP server configuration support
+- [X] Implement MCP server configuration support
 - [ ] Implement Hook configuration support
 - [ ] Implement session settings support
 - [ ] Implement complete authentication method support

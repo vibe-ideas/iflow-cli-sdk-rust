@@ -54,110 +54,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### MCP Server Configuration
-
-The SDK supports configuring MCP (Modular Command Protocol) servers for extended capabilities such as filesystem access, command execution, and more. You can configure MCP servers using the `McpServer` type:
-
-```rust
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, McpServer, EnvVariable};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Configure MCP servers for extended capabilities
-    let mcp_servers = vec![
-        McpServer {
-            name: "filesystem".to_string(),
-            command: "mcp-server-filesystem".to_string(),
-            args: vec!["--allowed-dirs".to_string(), "/workspace".to_string()],
-            env: vec![
-                EnvVariable {
-                    name: "DEBUG".to_string(),
-                    value: "1".to_string(),
-                }
-            ],
-        }
-    ];
-    
-    // Create options with MCP server configuration
-    let options = IFlowOptions::new()
-        .with_mcp_servers(mcp_servers);
-    
-    // Create client with options
-    let mut client = IFlowClient::new(Some(options));
-    
-    // Connect and use the client as usual
-    client.connect().await?;
-    // ...
-    Ok(())
-}
-```
-
-### Simple Query with Custom Configuration
-
-```rust
-use iflow_cli_sdk_rust::{query_with_config, IFlowOptions};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let options = IFlowOptions::new()
-        .with_timeout(60.0);  // 60 second timeout
-        
-    let response = query_with_config("What is 2 + 2?", options).await?;
-    println!("{}", response); // "4"
-    Ok(())
-}
-```
-
-## Configuration
-
-### Client Options
-
-```rust
-use iflow_cli_sdk_rust::IFlowOptions;
-
-let options = IFlowOptions::new()
-    .with_timeout(60.0)
-    .with_file_access(true)
-    .with_auto_start_process(true);
-```
-
-### WebSocket Communication
-
-The SDK supports WebSocket communication with iFlow for better performance and reliability. To use WebSocket, specify the WebSocket configuration in the options:
-
-```rust
-use iflow_cli_sdk_rust::{IFlowOptions, types::WebSocketConfig};
-
-// Simple configuration with default reconnect settings
-let options = IFlowOptions::new()
-    .with_websocket_config(WebSocketConfig::new("ws://localhost:8090/acp?peer=iflow".to_string()));
-
-// Or use the default configuration
-let options = IFlowOptions::new()
-    .with_websocket_config(WebSocketConfig::default());
-
-// Or configure with custom reconnect settings
-let options = IFlowOptions::new()
-    .with_websocket_config(WebSocketConfig::with_reconnect_settings(
-        "ws://localhost:8090/acp?peer=iflow".to_string(),
-        5,  // reconnect attempts
-        std::time::Duration::from_secs(10)  // reconnect interval
-    ));
-
-// In auto-start mode, you can omit the URL entirely
-let options = IFlowOptions::new()
-    .with_websocket_config(WebSocketConfig::auto_start());
-
-// Or configure auto-start mode with custom reconnect settings
-let options = IFlowOptions::new()
-    .with_websocket_config(WebSocketConfig::auto_start_with_reconnect_settings(
-        5,  // reconnect attempts
-        std::time::Duration::from_secs(10)  // reconnect interval
-    ));
-```
-
-If you enable auto-start process with a WebSocket URL pointing to localhost, the SDK will automatically start the iFlow process if it's not already running. In auto-start mode, you can omit the URL entirely and let the SDK generate it automatically.
-
 ## Message Types
 
 The SDK handles various message types from iFlow:
@@ -171,23 +67,17 @@ The SDK handles various message types from iFlow:
 
 ## Examples
 
-Run the examples:
+Run the [examples](./examples):
 
 ```bash
 # Simple query example
 cargo run --example query
 
-# Interactive client example
-cargo run --example basic_client
+# use WebSocket communication instead of stdio.
+cargo run --example websocket_client
 
-# Test response handling
-cargo run --example test_response
-
-# Explore API capabilities
-cargo run --example explore_api
-
-# Logging example
-cargo run --example logging_example
+# MCP Servers
+cargo run --example mcp_example
 ```
 
 ## Architecture
