@@ -31,9 +31,11 @@ Add this to your `Cargo.toml`:
 iflow-cli-sdk-rust = "0.1.0"
 ```
 
-Or install directly from the repository:
+Or install directly from the crate.io or GitHub repository:
 
 ```bash
+cargo add iflow-cli-sdk-rust
+# or
 cargo add --git https://github.com/vibe-ideas/iflow-cli-sdk-rust
 ```
 
@@ -102,84 +104,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         
     let response = query_with_config("What is 2 + 2?", options).await?;
     println!("{}", response); // "4"
-    Ok(())
-}
-```
-
-### Interactive Session
-
-```rust
-use iflow_cli_sdk_rust::{IFlowClient, IFlowOptions, Message};
-use futures::stream::StreamExt;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let options = IFlowOptions::new()
-        .with_auto_start_process(true);
-    
-    let mut client = IFlowClient::new(Some(options));
-    client.connect().await?;
-    
-    client.send_message("Hello, iFlow!", None).await?;
-    
-    let mut message_stream = client.messages();
-    while let Some(message) = message_stream.next().await {
-        match message {
-            Message::Assistant { content } => {
-                print!("{}", content);
-                std::io::stdout().flush()?;
-            }
-            Message::TaskFinish { .. } => {
-                break;
-            }
-            _ => {
-                // Handle other message types
-            }
-        }
-    }
-    
-    client.disconnect().await?;
-    Ok(())
-}
-```
-
-### Streaming Responses
-
-```rust
-use iflow_cli_sdk_rust::query_stream;
-use futures::stream::StreamExt;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut stream = query_stream("Tell me a story").await?;
-    
-    while let Some(chunk) = stream.next().await {
-        print!("{}", chunk);
-        std::io::stdout().flush()?;
-    }
-    
-    Ok(())
-}
-```
-
-### Streaming Responses with Custom Configuration
-
-```rust
-use iflow_cli_sdk_rust::{query_stream_with_config, IFlowOptions};
-use futures::stream::StreamExt;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let options = IFlowOptions::new()
-        .with_timeout(60.0);  // 60 second timeout
-        
-    let mut stream = query_stream_with_config("Tell me a story", options).await?;
-    
-    while let Some(chunk) = stream.next().await {
-        print!("{}", chunk);
-        std::io::stdout().flush()?;
-    }
-    
     Ok(())
 }
 ```
