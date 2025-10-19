@@ -93,7 +93,7 @@ The SDK is organized into several modules:
 
 ## Requirements
 
-- Rust 1.70+
+- Rust 1.90+
 - iFlow CLI installed with `--experimental-acp` support (or use auto-start feature)
 
 ## Development
@@ -125,8 +125,12 @@ RUST_LOG=debug cargo run --example basic_client
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Who is using this SDK?
+
+- [iflow-cli-action](https://github.com/iflow-ai/iflow-cli-action): Automate software development tasks within your GitHub repositories with iFlow CLI.

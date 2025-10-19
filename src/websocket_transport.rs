@@ -57,12 +57,12 @@ impl WebSocketTransport {
         debug!("Connecting to {}", self.url);
 
         // Parse URL to validate it
-        let url = Url::parse(&self.url)
+        let _url = Url::parse(&self.url)
             .map_err(|e| IFlowError::Connection(format!("Invalid URL: {}", e)))?;
 
         // Attempt to connect with timeout
         let (ws_stream, _) =
-            tokio::time::timeout(Duration::from_secs_f64(self.timeout), connect_async(url))
+            tokio::time::timeout(Duration::from_secs_f64(self.timeout), connect_async(&self.url))
                 .await
                 .map_err(|_| IFlowError::Timeout("Connection timeout".to_string()))?
                 .map_err(|e| {
@@ -96,7 +96,7 @@ impl WebSocketTransport {
 
         // Send the message
         ws_stream
-            .send(Message::Text(data.clone()))
+            .send(Message::Text(data.clone().into()))
             .await
             .map_err(|e| IFlowError::Transport(format!("Failed to send message: {}", e)))?;
 
@@ -124,7 +124,7 @@ impl WebSocketTransport {
 
         // Send the message
         ws_stream
-            .send(Message::Text(message.to_string()))
+            .send(Message::Text(message.to_string().into()))
             .await
             .map_err(|e| IFlowError::Transport(format!("Failed to send message: {}", e)))?;
 
@@ -182,7 +182,7 @@ impl WebSocketTransport {
                 }
                 Message::Binary(data) => {
                     // Convert binary to string if possible
-                    match String::from_utf8(data) {
+                    match String::from_utf8(data.to_vec()) {
                         Ok(text) => return Ok(text),
                         Err(_) => {
                             tracing::debug!("Received binary message, ignoring");
