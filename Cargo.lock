@@ -93,12 +93,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
 name = "bitflags"
 version = "2.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -471,14 +465,12 @@ dependencies = [
 
 [[package]]
 name = "iflow-cli-sdk-rust"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
  "async-trait",
- "base64",
  "futures",
- "mime",
  "serde",
  "serde_json",
  "serial_test",
@@ -556,12 +548,6 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
-
-[[package]]
-name = "mime"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mio"

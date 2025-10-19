@@ -1,6 +1,6 @@
 [package]
 name = "iflow-cli-sdk-rust"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 authors = ["iFlow Community Team"]
 description = "Rust SDK for iFlow CLI using Agent Client Protocol"
@@ -43,8 +43,8 @@ url = "2.5"
 tokio-tungstenite = "0.28"
 
 # Optional dependencies for enhanced functionality
-base64 = { version = "0.22", optional = true }
-mime = { version = "0.3", optional = true }
+# base64 = { version = "0.22", optional = true }
+# mime = { version = "0.3", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -52,8 +52,7 @@ tokio = { version = "1.48", features = ["full"] }
 serial_test = "3.2.0"
 
 [features]
-default = ["file-support"]
-file-support = ["base64", "mime"]
+# file-support = ["base64", "mime"]
 
 [[example]]
 name = "basic_client"
