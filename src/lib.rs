@@ -1,6 +1,6 @@
 //! iFlow CLI SDK for Rust
 //!
-//! A powerful SDK for interacting with iFlow using the Agent Communication Protocol (ACP).
+//! A powerful SDK for interacting with iFlow using the [Agent Client Protocol (ACP)](https://github.com/agentclientprotocol/agent-client-protocol).
 //! Built on top of the official agent-client-protocol crate.
 //!
 //! # Examples

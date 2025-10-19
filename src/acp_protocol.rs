@@ -1,4 +1,4 @@
-//! ACP (Agent Communication Protocol) implementation for iFlow SDK
+//! [Agent Client Protocol (ACP)](https://github.com/agentclientprotocol/agent-client-protocol) implementation for iFlow SDK
 //!
 //! This module implements the ACP protocol for communication
 //! between the SDK and iFlow. It handles the JSON-RPC based messaging
@@ -16,7 +16,7 @@ use tracing::debug;
 
 /// ACP protocol handler for iFlow communication
 ///
-/// Implements the Agent Communication Protocol (ACP) which
+/// Implements the [Agent Client Protocol (ACP)](https://github.com/agentclientprotocol/agent-client-protocol) which
 /// defines the interaction between GUI applications and AI agents.
 pub struct ACPProtocol {
     /// WebSocket transport for communication

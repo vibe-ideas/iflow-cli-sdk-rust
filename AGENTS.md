@@ -1,6 +1,6 @@
 # iFlow CLI Rust SDK
 
-This directory contains the iFlow CLI SDK for Rust, which allows developers to interact with iFlow using the Agent Communication Protocol (ACP).
+This directory contains the iFlow CLI SDK for Rust, which allows developers to interact with iFlow using the [Agent Client Protocol (ACP)](https://github.com/agentclientprotocol/agent-client-protocol).
 
 ## Project Overview
 
@@ -77,7 +77,7 @@ RUST_LOG=debug cargo run --example basic_client
   - `error` - Error types and handling
   - `logger` - Message logging functionality
   - `websocket_transport` - Low-level WebSocket communication
-  - `acp_protocol` - Implementation of the Agent Communication Protocol
+  - `acp_protocol` - Implementation of the [Agent Client Protocol (ACP)](https://github.com/agentclientprotocol/agent-client-protocol)
 
 - Uses the official `agent-client-protocol` crate for ACP implementation
 - Follows Rust async/await patterns with Tokio runtime

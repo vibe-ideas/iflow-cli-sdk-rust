@@ -53,7 +53,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 
 ## Development Plan
 
-### Phase 1: Message Type Enhancement (v0.2.0)
+### Phase 1: Message Type Enhancement
 
 **Goal**: Complete support for all ACP message types
 
@@ -63,7 +63,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [X] Implement detailed `ErrorMessage` handling
 - [X] Add message type test cases
 
-### Phase 2: Advanced Configuration Support (v0.3.0)
+### Phase 2: Advanced Configuration Support
 
 **Goal**: Provide configuration options comparable to the Python SDK
 
@@ -73,7 +73,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [ ] Implement complete authentication method support
 - [ ] Add configuration option test cases
 
-### Phase 3: Tool Call Enhancement (v0.4.0)
+### Phase 3: Tool Call Enhancement
 
 **Goal**: Provide complete tool call management functionality
 
@@ -83,7 +83,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [ ] Implement tool call rejection functionality
 - [ ] Add tool call management test cases
 
-### Phase 4: File System Access (v0.5.0)
+### Phase 4: File System Access
 
 **Goal**: Provide secure file system access functionality
 
@@ -93,7 +93,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [ ] Add file access test cases
 - [ ] Add security audit
 
-### Phase 5: Session Management Enhancement (v0.6.0)
+### Phase 5: Session Management Enhancement
 
 **Goal**: Provide complete session management functionality
 
@@ -101,7 +101,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [ ] Implement session persistence support
 - [ ] Add session management test cases
 
-### Phase 6: Performance Optimization and Stability (v0.7.0)
+### Phase 6: Performance Optimization and Stability
 
 **Goal**: Optimize SDK performance and improve stability
 
@@ -111,7 +111,7 @@ Compared to the Python SDK, the Rust SDK needs enhancement in the following area
 - [ ] Add integration tests
 - [ ] Add stress tests
 
-### Phase 7: Documentation Enhancement (v0.8.0)
+### Phase 7: Documentation Enhancement
 
 **Goal**: Provide complete documentation and examples
 
