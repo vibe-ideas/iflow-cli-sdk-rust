@@ -24,8 +24,7 @@ jobs:
       run: |
         npx -v
         npm install -g @iflow-ai/iflow-cli@latest
-        mkdir -p ~/.iflow
-        cat > ~/.iflow/settings.json <<'EOF'
-        ${{ secrets.IFLOW_SETTINGS_JSON }}
-        EOF
-        RUST_LOG=debug cargo run --example websocket_client
+        if not exist "%USERPROFILE%\.iflow" mkdir "%USERPROFILE%\.iflow"
+        echo ${{ secrets.IFLOW_SETTINGS_JSON }} > "%USERPROFILE%\.iflow\settings.json"
+        set RUST_LOG=debug
+        cargo run --example websocket_client
