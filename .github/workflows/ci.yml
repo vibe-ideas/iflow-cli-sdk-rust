@@ -13,7 +13,10 @@ env:
 
 jobs:
   e2e-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
     
     steps:
     - uses: actions/checkout@v3
