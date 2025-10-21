@@ -1,0 +1,31 @@
+name: CI (E2E-Windows)
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e-tests-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@master
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Run e2e tests
+      run: |
+        npx -v
+        npm install -g @iflow-ai/iflow-cli@latest
+        mkdir -p ~/.iflow
+        cat > ~/.iflow/settings.json <<'EOF'
+        ${{ secrets.IFLOW_SETTINGS_JSON }}
+        EOF
+        RUST_LOG=debug cargo run --example websocket_client
