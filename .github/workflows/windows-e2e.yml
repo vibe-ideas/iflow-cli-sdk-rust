@@ -21,10 +21,11 @@ jobs:
         override: true
 
     - name: Run e2e tests
+      shell: pwsh
       run: |
         npx -v
         npm install -g @iflow-ai/iflow-cli@latest
-        if not exist "%USERPROFILE%\.iflow" mkdir "%USERPROFILE%\.iflow"
-        echo ${{ secrets.IFLOW_SETTINGS_JSON }} > "%USERPROFILE%\.iflow\settings.json"
-        set RUST_LOG=debug
+        if (!(Test-Path "$env:USERPROFILE\.iflow")) { New-Item -ItemType Directory -Path "$env:USERPROFILE\.iflow" }
+        Set-Content -Path "$env:USERPROFILE\.iflow\settings.json" -Value "${{ secrets.IFLOW_SETTINGS_JSON }}"
+        $env:RUST_LOG="debug"
         cargo run --example websocket_client
