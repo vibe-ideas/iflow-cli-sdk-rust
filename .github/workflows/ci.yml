@@ -12,11 +12,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  e2e-tests:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest]
+  e2e-tests-all:
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
@@ -55,3 +52,27 @@ jobs:
         ${{ secrets.IFLOW_SETTINGS_JSON }}
         EOF
         RUST_LOG=debug cargo test --test e2e_tests -- --nocapture
+
+  e2e-tests-macos:
+    needs: e2e-tests-all
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@master
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Run e2e tests
+      run: |
+        npx -v
+        npm install -g @iflow-ai/iflow-cli@latest
+        mkdir -p ~/.iflow
+        cat > ~/.iflow/settings.json <<'EOF'
+        ${{ secrets.IFLOW_SETTINGS_JSON }}
+        EOF
+        RUST_LOG=debug cargo run --example websocket_client
