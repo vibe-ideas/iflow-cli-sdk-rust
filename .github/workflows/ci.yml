@@ -73,6 +73,12 @@ jobs:
         npm install -g @iflow-ai/iflow-cli@latest
         mkdir -p ~/.iflow
         cat > ~/.iflow/settings.json <<'EOF'
-        ${{ secrets.IFLOW_SETTINGS_JSON }}
+        {
+            "selectedAuthType": "iflow",
+            "apiKey": "${{ secrets.IFLOW_API_KEY }}",
+            "baseUrl": "https://apis.iflow.cn/v1",
+            "modelName": "Qwen3-Coder",
+            "searchApiKey": "${{ secrets.IFLOW_API_KEY }}"
+        }
         EOF
         RUST_LOG=debug cargo run --example websocket_client
