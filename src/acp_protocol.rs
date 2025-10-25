@@ -5,7 +5,8 @@
 //! and protocol flow.
 
 use crate::error::{IFlowError, Result};
-use crate::types::{IFlowOptions, Message, PermissionMode};
+use crate::config::options::IFlowOptions;
+use crate::message::types::{Message, PermissionMode};
 use crate::websocket_transport::WebSocketTransport;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -540,10 +541,9 @@ impl ACPProtocol {
             };
 
             // Check if this is the response we're waiting for
-            if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
-                if id == request_id as u64 {
-                    return Ok(data);
-                }
+            if let Some(id) = data.get("id").and_then(|v| v.as_u64())
+                && id == request_id as u64 {
+                return Ok(data);
             }
 
             // If not our response, process as a notification
@@ -610,16 +610,15 @@ impl ACPProtocol {
             // Check if this is the response we're waiting for
             if let Some(id) = data.get("id").and_then(|v| v.as_u64()) {
                 // Handle permission requests that come with an ID
-                if let Some(method) = data.get("method").and_then(|v| v.as_str()) {
-                    if method == "session/request_permission" {
-                        tracing::debug!("Handling session/request_permission with ID: {}", id);
-                        // Process the permission request immediately
-                        if let Err(e) = self.handle_client_method(method, data.clone()).await {
-                            tracing::warn!("Failed to handle permission request: {}", e);
-                        }
-                        // Continue waiting for the main response
-                        continue;
+                if let Some(method) = data.get("method").and_then(|v| v.as_str())
+                    && method == "session/request_permission" {
+                    tracing::debug!("Handling session/request_permission with ID: {}", id);
+                    // Process the permission request immediately
+                    if let Err(e) = self.handle_client_method(method, data.clone()).await {
+                        tracing::warn!("Failed to handle permission request: {}", e);
                     }
+                    // Continue waiting for the main response
+                    continue;
                 }
                 
                 // If this is the response we're waiting for, return it
@@ -646,10 +645,9 @@ impl ACPProtocol {
     /// * `Err(IFlowError)` if handling failed
     async fn handle_notification(&mut self, data: Value) -> Result<()> {
         // Handle method calls from server (client interface)
-        if let Some(method) = data.get("method").and_then(|v| v.as_str()) {
-            if data.get("result").is_none() && data.get("error").is_none() {
-                self.handle_client_method(method, data.clone()).await?;
-            }
+        if let Some(method) = data.get("method").and_then(|v| v.as_str())
+            && data.get("result").is_none() && data.get("error").is_none() {
+            self.handle_client_method(method, data.clone()).await?;
         }
 
         Ok(())
@@ -670,13 +668,12 @@ impl ACPProtocol {
 
         match method {
             "session/update" => {
-                if let Some(update_obj) = params.get("update").and_then(|v| v.as_object()) {
-                    if let Some(session_update) =
+                if let Some(update_obj) = params.get("update").and_then(|v| v.as_object())
+                    && let Some(session_update) =
                         update_obj.get("sessionUpdate").and_then(|v| v.as_str())
-                    {
-                        self.handle_session_update(session_update, update_obj, request_id)
-                            .await?;
-                    }
+                {
+                    self.handle_session_update(session_update, update_obj, request_id)
+                        .await?;
                 }
             }
             "session/request_permission" => {
@@ -772,10 +769,9 @@ impl ACPProtocol {
                     }
                 }
                 // Fallback to first option's optionId if no specific option found
-                if selected_option == "proceed_once" && !options_array.is_empty() {
-                    if let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
-                        selected_option = first_option_id.to_string();
-                    }
+                if selected_option == "proceed_once" && !options_array.is_empty()
+                    && let Some(first_option_id) = options_array[0].get("optionId").and_then(|v| v.as_str()) {
+                    selected_option = first_option_id.to_string();
                 }
             }
             RequestPermissionResponse {
@@ -885,7 +881,7 @@ impl ACPProtocol {
             }
             "plan" => {
                 if let Some(entries) = update.get("entries").and_then(|v| v.as_array()) {
-                    let entries: Vec<super::types::PlanEntry> = entries
+                    let entries: Vec<crate::message::types::PlanEntry> = entries
                         .iter()
                         .filter_map(|entry| {
                             let content =
@@ -900,20 +896,20 @@ impl ACPProtocol {
                                 .unwrap_or("pending");
 
                             let priority = match priority_str {
-                                "high" => super::types::PlanPriority::High,
-                                "medium" => super::types::PlanPriority::Medium,
-                                "low" => super::types::PlanPriority::Low,
-                                _ => super::types::PlanPriority::Medium,
+                                "high" => crate::message::types::PlanPriority::High,
+                                "medium" => crate::message::types::PlanPriority::Medium,
+                                "low" => crate::message::types::PlanPriority::Low,
+                                _ => crate::message::types::PlanPriority::Medium,
                             };
 
                             let status = match status_str {
-                                "pending" => super::types::PlanStatus::Pending,
-                                "in_progress" => super::types::PlanStatus::InProgress,
-                                "completed" => super::types::PlanStatus::Completed,
-                                _ => super::types::PlanStatus::Pending,
+                                "pending" => crate::message::types::PlanStatus::Pending,
+                                "in_progress" => crate::message::types::PlanStatus::InProgress,
+                                "completed" => crate::message::types::PlanStatus::Completed,
+                                _ => crate::message::types::PlanStatus::Pending,
                             };
 
-                            Some(super::types::PlanEntry {
+                            Some(crate::message::types::PlanEntry {
                                 content,
                                 priority,
                                 status,

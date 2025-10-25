@@ -1,6 +1,7 @@
 use crate::client::IFlowClient;
 use crate::error::Result;
-use crate::types::{IFlowOptions, Message};
+use crate::config::options::IFlowOptions;
+use crate::message::types::Message;
 use futures::stream::StreamExt;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -63,7 +64,7 @@ pub async fn query_with_config(prompt: &str, options: IFlowOptions) -> Result<St
     let timeout_secs = options.timeout;
     // Use a fraction of the total timeout for individual message reception
     // This ensures we don't block indefinitely on any single message
-    let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
+    let message_timeout_secs = (timeout_secs / 10.0).clamp(0.1, 1.0);
 
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
@@ -160,7 +161,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
     // Apply timeout to the entire operation
     // Use a fraction of the total timeout for individual message reception
     // This ensures we don't block indefinitely on any single message
-    let message_timeout_secs = (timeout_secs / 10.0).min(1.0).max(0.1);
+    let message_timeout_secs = (timeout_secs / 10.0).clamp(0.1, 1.0);
 
     match timeout(Duration::from_secs_f64(timeout_secs), async {
         let local = tokio::task::LocalSet::new();
@@ -170,7 +171,7 @@ pub async fn query_with_timeout(prompt: &str, timeout_secs: f64) -> Result<Strin
                 let options = IFlowOptions::new()
                     .with_timeout(timeout_secs)
                     .with_process_config(
-                        crate::types::ProcessConfig::new()
+                        crate::config::process::ProcessConfig::new()
                             .enable_auto_start()
                             .stdio_mode(),
                     );
