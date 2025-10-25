@@ -79,6 +79,22 @@ path = "examples/advanced/permission_modes.rs"
 name = "mcp_example"
 path = "examples/advanced/mcp_example.rs"
 
+[[example]]
+name="explore_api"
+path = "examples/advanced/explore_api.rs"
+
+[[example]]
+name="query_with_config"
+path = "examples/query/query_with_config.rs"
+
+[[example]]
+name="test_response"
+path = "examples/query/test_response.rs"
+
+[[example]]
+name="websocket_mcp"
+path = "examples/websocket/websocket_mcp.rs"
+
 [[test]]
 name = "message_tests"
 path = "tests/core/message_tests.rs"
