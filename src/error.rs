@@ -74,3 +74,14 @@ pub enum IFlowError {
 ///
 /// This is a convenience alias for `std::result::Result<T, IFlowError>`.
 pub type Result<T> = std::result::Result<T, IFlowError>;
+
+impl From<crate::connection::handler::ConnectionError> for IFlowError {
+    fn from(err: crate::connection::handler::ConnectionError) -> Self {
+        match err {
+            crate::connection::handler::ConnectionError::NotInitialized => IFlowError::Connection("Connection not initialized".to_string()),
+            crate::connection::handler::ConnectionError::NotAuthenticated => IFlowError::Authentication("Connection not authenticated".to_string()),
+            crate::connection::handler::ConnectionError::NoSession => IFlowError::Connection("No session available".to_string()),
+            crate::connection::handler::ConnectionError::ConnectionError(msg) => IFlowError::Connection(msg),
+        }
+    }
+}

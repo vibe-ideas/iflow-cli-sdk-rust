@@ -13,7 +13,7 @@ dependencies = [
  "async-broadcast",
  "async-trait",
  "derive_more",
- "futures",
+ "futures 0.3.31",
  "log",
  "parking_lot",
  "serde",
@@ -252,6 +252,12 @@ dependencies = [
 
 [[package]]
 name = "futures"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
+
+[[package]]
+name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
@@ -327,6 +333,7 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
+ "futures 0.1.31",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -492,7 +499,8 @@ dependencies = [
  "agent-client-protocol",
  "anyhow",
  "async-trait",
- "futures",
+ "futures 0.3.31",
+ "futures-util",
  "serde",
  "serde_json",
  "serial_test",
@@ -879,7 +887,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b258109f244e1d6891bf1053a55d63a5cd4f8f4c30cf9a1280989f80e7a1fa9"
 dependencies = [
- "futures",
+ "futures 0.3.31",
  "log",
  "once_cell",
  "parking_lot",

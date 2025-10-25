@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(while read dir)",
+      "Bash(done)",
+      "Bash(cargo test:*)",
+      "Read(//tmp/**)",
+      "Bash(cargo check:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo add:*)",
+      "Bash(cargo tree:*)",
+      "Bash(find:*)",
+      "Bash(cargo clippy:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

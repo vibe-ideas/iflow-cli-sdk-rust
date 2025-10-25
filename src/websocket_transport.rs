@@ -92,7 +92,7 @@ impl WebSocketTransport {
         let ws_stream = self.websocket.as_mut().ok_or(IFlowError::NotConnected)?;
 
         // Serialize message to JSON string
-        let data = serde_json::to_string(message).map_err(|e| IFlowError::JsonParse(e))?;
+        let data = serde_json::to_string(message).map_err(IFlowError::JsonParse)?;
 
         // Send the message
         ws_stream

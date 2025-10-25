@@ -54,11 +54,14 @@
 
 pub mod acp_protocol;
 pub mod client;
+pub mod config;
+pub mod connection;
 pub mod error;
 pub mod logger;
+pub mod message;
 pub mod process_manager;
+pub mod protocol;
 pub mod query;
-pub mod types;
 pub mod websocket_transport;
 
 // Re-export main types
@@ -70,7 +73,8 @@ pub use query::{
     query, query_stream, query_stream_with_config, query_stream_with_timeout, query_with_config,
     query_with_timeout,
 };
-pub use types::{IFlowOptions, Message};
+pub use config::options::IFlowOptions;
+pub use message::types::Message;
 
 // Re-export types from agent-client-protocol that we actually use
 pub use agent_client_protocol::{EnvVariable, McpServer, SessionId, StopReason};
