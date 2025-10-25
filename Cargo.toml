@@ -86,3 +86,7 @@ path = "tests/core/message_tests.rs"
 [[test]]
 name = "timeout_test"
 path = "tests/core/timeout_test.rs"
+
+[[test]]
+name = "e2e_tests"
+path = "tests/e2e/e2e_tests.rs"
