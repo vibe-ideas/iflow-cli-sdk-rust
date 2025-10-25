@@ -245,6 +245,16 @@ impl ConnectionHandler for StdioConnection {
             prompt_response.stop_reason
         );
 
+        // Send task finish message with the actual stop reason
+        let message = Message::TaskFinish {
+            reason: Some(format!("{:?}", prompt_response.stop_reason)),
+        };
+
+        self.message_sender.send(message).map_err(|e| {
+            debug!("Failed to send task finish message: {}", e);
+            ConnectionError::ConnectionError("Message channel closed".to_string())
+        })?;
+
         Ok(())
     }
 
