@@ -13,7 +13,7 @@ exclude = ["/.github", "/tests/*", "/.vscode", "/.iflow"]
 
 [dependencies]
 # Use the official agent-client-protocol crate
-agent-client-protocol = "0.5.0"
+agent-client-protocol = "0.7.0"
 
 # Async runtime
 tokio = { version = "1.48", features = ["full"] }
@@ -41,6 +41,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.18", features = ["v4"] }
 url = "2.5"
 tokio-tungstenite = "0.28"
+futures-util = { version = "0.3.31", features = ["compat"] }
 
 # Optional dependencies for enhanced functionality
 # base64 = { version = "0.22", optional = true }
@@ -56,28 +57,52 @@ serial_test = "3.2.0"
 
 [[example]]
 name = "basic_client"
-path = "examples/basic_client.rs"
+path = "examples/basic/basic_client.rs"
 
 [[example]]
 name = "query"
-path = "examples/query.rs"
+path = "examples/query/query.rs"
 
 [[example]]
 name = "logging_example"
-path = "examples/logging_example.rs"
+path = "examples/advanced/logging_example.rs"
 
 [[example]]
 name = "websocket_client"
-path = "examples/websocket_client.rs"
+path = "examples/websocket/websocket_client.rs"
 
 [[example]]
 name = "permission_modes"
-path = "examples/permission_modes.rs"
+path = "examples/advanced/permission_modes.rs"
 
 [[example]]
 name = "mcp_example"
-path = "examples/mcp_example.rs"
+path = "examples/advanced/mcp_example.rs"
+
+[[example]]
+name="explore_api"
+path = "examples/advanced/explore_api.rs"
+
+[[example]]
+name="query_with_config"
+path = "examples/query/query_with_config.rs"
+
+[[example]]
+name="test_response"
+path = "examples/query/test_response.rs"
+
+[[example]]
+name="websocket_mcp"
+path = "examples/websocket/websocket_mcp.rs"
 
 [[test]]
 name = "message_tests"
-path = "tests/message_tests.rs"
+path = "tests/core/message_tests.rs"
+
+[[test]]
+name = "timeout_test"
+path = "tests/core/timeout_test.rs"
+
+[[test]]
+name = "e2e_tests"
+path = "tests/e2e/e2e_tests.rs"
