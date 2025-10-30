@@ -13,7 +13,7 @@ exclude = ["/.github", "/tests/*", "/.vscode", "/.iflow"]
 
 [dependencies]
 # Use the official agent-client-protocol crate
-agent-client-protocol = "0.5.0"
+agent-client-protocol = "0.7.0"
 
 # Async runtime
 tokio = { version = "1.48", features = ["full"] }

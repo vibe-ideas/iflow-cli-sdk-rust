@@ -98,8 +98,8 @@ impl Client for IFlowClientHandler {
         args: SessionNotification,
     ) -> AnyhowResult<(), Error> {
         match args.update {
-            SessionUpdate::AgentMessageChunk { content } => {
-                let text = match content {
+            SessionUpdate::AgentMessageChunk(content) => {
+                let text = match content.content {
                     ContentBlock::Text(text_content) => text_content.text,
                     ContentBlock::Image(_) => "<image>".into(),
                     ContentBlock::Audio(_) => "<audio>".into(),
@@ -114,8 +114,8 @@ impl Client for IFlowClientHandler {
                     let _ = logger.log_message(&msg).await;
                 }
             }
-            SessionUpdate::UserMessageChunk { content } => {
-                let text = match content {
+            SessionUpdate::UserMessageChunk(content) => {
+                let text = match content.content {
                     ContentBlock::Text(text_content) => text_content.text,
                     ContentBlock::Image(_) => "<image>".into(),
                     ContentBlock::Audio(_) => "<audio>".into(),

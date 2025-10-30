@@ -172,6 +172,7 @@ impl ConnectionHandler for StdioConnection {
                 .initialize(agent_client_protocol::InitializeRequest {
                     protocol_version: agent_client_protocol::V1,
                     client_capabilities: agent_client_protocol::ClientCapabilities::default(),
+                    client_info: Default::default(),
                     meta: None,
                 })
                 .await

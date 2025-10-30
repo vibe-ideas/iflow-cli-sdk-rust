@@ -76,11 +76,11 @@ pub fn process_session_update(
     message_sender: &UnboundedSender<Message>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let msg = match update {
-        SessionUpdate::AgentMessageChunk { content } => {
-            create_message_from_content(content, false)
+        SessionUpdate::AgentMessageChunk(content) => {
+            create_message_from_content(content.content, false)
         }
-        SessionUpdate::UserMessageChunk { content } => {
-            create_message_from_content(content, true)
+        SessionUpdate::UserMessageChunk(content) => {
+            create_message_from_content(content.content, true)
         }
         SessionUpdate::ToolCall(tool_call) => Message::ToolCall {
             id: tool_call.id.0.to_string(),
